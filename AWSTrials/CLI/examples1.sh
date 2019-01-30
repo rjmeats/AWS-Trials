@@ -1,6 +1,4 @@
-# Setting aws as a command alias, and allow it to work in shell scripts
-alias aws=aws.cmd
-shopt -s expand_aliases
+. ./aws_env_setup.sh
 
 echo 
 echo $SHELL at $(date)
@@ -9,7 +7,7 @@ echo
 echo "Location of the aws command:"
 echo "============================"
 echo
-where aws
+alias aws
 
 echo
 echo "AWS CLI version:"
