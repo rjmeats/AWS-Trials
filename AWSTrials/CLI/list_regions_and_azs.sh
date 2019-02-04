@@ -12,6 +12,7 @@ aws ec2 describe-regions --output text --query 'Regions[*].{Name:RegionName}'  |
 echo
 echo "Availability zones for each region:"
 echo
+echo "- NB AZ Name-to-ID mapping can vary from account to account!"
 
 # --output text Columns seem to be returned in alphabetical order of the column name, regardless of order in the --query parameter
 printf "%s\t\t%s\t\t%s\t\t%s\n" "Region" "State" "Zone Id" "Zone Name"
