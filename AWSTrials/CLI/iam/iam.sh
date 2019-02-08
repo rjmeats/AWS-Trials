@@ -15,3 +15,10 @@ echo
 
 aws iam list-roles
 
+
+echo
+echo "List groups:"
+echo
+
+aws iam list-groups
+
