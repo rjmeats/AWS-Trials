@@ -40,4 +40,17 @@ echo
 
 aws ec2 describe-network-acls
 
+echo
+echo "Internet Gateways:"
+echo
+
+aws ec2 describe-internet-gateways
+
+
+echo
+echo "NAT Gateways:"
+echo
+
+aws ec2 describe-nat-gateways
+
 
