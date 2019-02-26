@@ -45,9 +45,11 @@ echo
 echo "Copy files to the bucket:"
 echo
 
-aws s3api put-object --bucket "${MY_BUCKET}" --key index.html --body ${SIMPLE_SITE_FILES}/index.html 
-aws s3api put-object --bucket "${MY_BUCKET}" --key page2.html --body ${SIMPLE_SITE_FILES}/page2.html 
-aws s3api put-object --bucket "${MY_BUCKET}" --key pngs/NG_1x1_red.png --body ${SIMPLE_SITE_FILES}/pngs/NG_1x1_red.png
+# NB Need to specify a content-type, otherwise files take on binary/octet-stream as their type, and don't work properly on a website.
+
+aws s3api put-object --bucket "${MY_BUCKET}" --key index.html --content-type "text/html" --body ${SIMPLE_SITE_FILES}/index.html 
+aws s3api put-object --bucket "${MY_BUCKET}" --key page2.html --content-type "text/html" --body ${SIMPLE_SITE_FILES}/page2.html 
+aws s3api put-object --bucket "${MY_BUCKET}" --key pngs/NG_1x1_red.png --content-type "image/png" --body ${SIMPLE_SITE_FILES}/pngs/NG_1x1_red.png
 
 echo
 echo "List objects in the new bucket:"

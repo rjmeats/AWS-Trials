@@ -60,6 +60,7 @@ echo
 echo "Copy files to the bucket:"
 echo
 
+# NB The CLI program attempts to guess a content-type value for each file, resulting in content-type metadata being applied automatically to files.
 aws s3 cp "${SIMPLE_SITE_FILES}" s3://"${MY_BUCKET}" --recursive
 
 echo
