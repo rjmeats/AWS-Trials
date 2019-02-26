@@ -10,6 +10,7 @@ MY_BUCKET="${SIMPLE_S3_BUCKET_NAME}"
 
 echo
 echo "S3 bucket is ${MY_BUCKET}"
+echo "Bucket region is ${BUCKET_REGION}"
 echo "Source files are under ${SIMPLE_SITE_FILES}"
 
 if [[ -z "${MY_BUCKET}" ]]
@@ -35,12 +36,10 @@ aws s3api delete-object --bucket "${MY_BUCKET}" --key pngs/NG_1x1_red.png
 aws s3api delete-bucket --bucket "${MY_BUCKET}"
 
 echo
-echo "Create new ${MY_BUCKET} bucket:"
-echo
-echo "- in London region"
+echo "Create new ${MY_BUCKET} bucket in ${BUCKET_REGION} region:"
 echo
 
-aws s3api create-bucket --bucket "${MY_BUCKET}" --region eu-west-2 --create-bucket-configuration LocationConstraint=eu-west-2
+aws s3api create-bucket --bucket "${MY_BUCKET}" --region ${BUCKET_REGION} --create-bucket-configuration LocationConstraint=${BUCKET_REGION}
 
 echo
 echo "Copy files to the bucket:"
