@@ -6,7 +6,7 @@
 echo
 echo $SHELL at $(date)
 
-MY_BUCKET="${SIMPLE_S3_BUCKET_NAME}"
+MY_BUCKET="${DOMAIN_S3_BUCKET_NAME}"
 
 echo
 echo "S3 bucket is ${MY_BUCKET}"
