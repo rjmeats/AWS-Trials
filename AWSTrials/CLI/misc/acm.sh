@@ -22,3 +22,12 @@ echo
 
 aws acm describe-certificate --region us-east-1 --certificate-arn $CERT_ARN
 
+echo
+echo "Get certificate:"
+echo
+echo "- US East 1 (North Virginia) region"
+echo "- ARN: $CERT_ARN"
+echo 
+
+aws acm get-certificate --region us-east-1 --certificate-arn $CERT_ARN
+
