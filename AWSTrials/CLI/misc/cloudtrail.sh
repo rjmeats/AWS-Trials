@@ -9,3 +9,8 @@ echo
 
 aws cloudtrail lookup-events --lookup-attributes AttributeKey=EventName,AttributeValue=ConsoleLogin
 
+echo
+echo "List trails:"
+echo
+
+aws cloudtrail describe-trails
