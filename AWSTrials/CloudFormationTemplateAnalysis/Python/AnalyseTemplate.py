@@ -40,6 +40,7 @@ def main(filename) :
     print("... format is ", format)
 
     resourceTypeCounts = collections.Counter()
+    referencesCounts = collections.Counter()
 
     for k,v in data.items() :
         # Print main section names
@@ -86,13 +87,23 @@ def main(filename) :
                 refs = getRefs(v2)
                 if len(refs) > 0 :
                     print("  - has refs to ", refs)
+                    for r in refs :
+                        referencesCounts[r] += 1
 
         print("")
         print("===========================================================================================================")
         print("")
 
+    print("Resource types:")
+    print
     for c in resourceTypeCounts.keys() :
         print(c, " : ", resourceTypeCounts[c])
+
+    print("")
+    print("Resources referenced from other resources:")
+    print
+    for c in referencesCounts.keys() :
+        print(c, " : ", referencesCounts[c])
 
 if __name__ == "__main__" :
 
