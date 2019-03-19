@@ -1,5 +1,6 @@
 import sys
 import os
+import collections
 import cfn_flip
 
 # Recursive check through nested dictionaries defining attributes of a resource, to
@@ -38,11 +39,10 @@ def main(filename) :
 
     print("... format is ", format)
 
+    resourceTypeCounts = collections.Counter()
+
     for k,v in data.items() :
         # Print main section names
-        print("")
-        print("===========================================================================================================")
-        print("")
         print(k, ":")
         print("")
         if k in ['AWSTemplateFormatVersion', 'Description'] :
@@ -81,10 +81,18 @@ def main(filename) :
         if k == 'Resources' :
             for k2, v2 in v.items() :
                 print("- ", k2, v2['Type'])
+                resourceTypeCounts[v2['Type']] += 1
                 # And show references to other resources, parameters, etc
                 refs = getRefs(v2)
                 if len(refs) > 0 :
                     print("  - has refs to ", refs)
+
+        print("")
+        print("===========================================================================================================")
+        print("")
+
+    for c in resourceTypeCounts.keys() :
+        print(c, " : ", resourceTypeCounts[c])
 
 if __name__ == "__main__" :
 
