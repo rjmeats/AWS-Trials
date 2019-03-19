@@ -39,11 +39,12 @@ def main(filename) :
     print("... format is ", format)
 
     for k,v in data.items() :
-        print("================================================================")
-        print("")
-
         # Print main section names
-        print(k, type(v), ":")
+        print("")
+        print("===========================================================================================================")
+        print("")
+        print(k, ":")
+        print("")
         if k in ['AWSTemplateFormatVersion', 'Description'] :
                 print("- ", v)
 
