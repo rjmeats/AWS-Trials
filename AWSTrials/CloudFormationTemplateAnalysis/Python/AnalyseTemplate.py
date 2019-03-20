@@ -1,7 +1,9 @@
 import sys
 import os
 import collections
-import cfn_flip
+import cfn_flip         # https://github.com/awslabs/aws-cfn-template-flip
+
+# https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/template-reference.html
 
 # Recursive check through nested dictionaries defining attributes of a resource, to
 # find references to other resources, parameters etc, and return these as a list
@@ -69,8 +71,72 @@ def extractConditionsInfo(name, dIn) :
 
     dOut = {}
     dOut['Name'] = name
-    dOut['Condition'] = str(dIn)
+    dOut['ConditionNodeString'] = str(dIn)
     dOut['FullNode'] = dIn
+    return dOut
+
+def extractOutputsInfo(name, dIn) :
+
+    noValue = '-'
+    dOut = {}
+    dOut['Name'] = name
+    dOut['Description'] = dIn.get('Description', noValue)
+    dOut['ValueNodeString'] = str(dIn['Value'])
+    dOut['FullNode'] = dIn
+    return dOut
+
+def extractResourcesInfo(name, dIn) :
+
+    knownTypes = [
+            'AWS::EC2::VPC', 'AWS::EC2::Subnet', 'AWS::EC2::InternetGateway', 'AWS::EC2::VPCGatewayAttachment',
+            'AWS::EC2::RouteTable', 'AWS::EC2::Route', 'AWS::EC2::SubnetRouteTableAssociation',
+
+            'AWS::EC2::SecurityGroup', 'AWS::EC2::SecurityGroupIngress', 
+
+            'AWS::S3::Bucket', 'AWS::S3::BucketPolicy',
+            'AWS::CloudFront::CloudFrontOriginAccessIdentity', 'AWS::CloudFront::Distribution',
+
+            'AWS::IAM::Role', 'AWS::IAM::InstanceProfile',
+
+            'AWS::AutoScaling::AutoScalingGroup', 'AWS::AutoScaling::LaunchConfiguration', 'AWS::AutoScaling::ScalingPolicy',
+
+            'AWS::CloudWatch::Alarm', 'AWS::CloudWatch::Dashboard',
+
+            'AWS::SSM::Association',
+
+            'AWS::ElasticLoadBalancingV2::LoadBalancer', 'AWS::ElasticLoadBalancingV2::Listener', 'AWS::ElasticLoadBalancingV2::TargetGroup',
+
+            'AWS::ApplicationAutoScaling::ScalableTarget', 'AWS::ApplicationAutoScaling::ScalingPolicy',
+
+            'AWS::DynamoDB::Table',
+
+            'AWS::Cognito::UserPool', 'AWS::Cognito::UserPoolClient', 'AWS::Cognito::IdentityPool', 'AWS::Cognito::IdentityPoolRoleAttachment',
+            'AWS::Cognito::UserPoolUser',
+
+            'AWS::KinesisFirehose::DeliveryStream', 'AWS::Kinesis::Stream', 'AWS::KinesisAnalytics::Application', 'AWS::KinesisAnalytics::ApplicationOutput',
+
+            'AWS::Lambda::EventSourceMapping', 'AWS::Lambda::Function',
+
+            'Custom::LoadLambda',
+                ]
+
+    noValue = '-'
+    dOut = {}
+    dOut['Name'] = name
+    dOut['Type'] = dIn.get('Type', noValue)
+    dOut['PropertiesNodeString'] = str(dIn.get('Properties', {}))
+
+    dOut['CreationPolicy'] = str(dIn.get('CreationPolicy', {}))
+    dOut['DeletionPolicy'] = dIn.get('DeletionPolicy', noValue)
+    dOut['DependsOn'] = str(dIn.get('DependsOn', []))
+    dOut['Metadata'] = str(dIn.get('Metadata', {}))
+    dOut['UpdatePolicy'] = str(dIn.get('UpdatePolicy', {}))
+    dOut['UpdateReplacePolicy'] = dIn.get('UpdateReplacePolicy', noValue)
+
+    dOut['FullNode'] = dIn
+
+    if dOut['Type'] not in knownTypes :
+        print('Unknown resource type: ', dOut['Type'])
     return dOut
 
 
@@ -89,6 +155,8 @@ def analyseConfiguration(data) :
     metadata = {}
     mappings = {}
     conditions = {}
+    resources = {}
+    outputs = {}
 
     for k,v in data.items() :
         # Print main section names
@@ -128,21 +196,22 @@ def analyseConfiguration(data) :
                 allItems[k2] = k
                 con = extractConditionsInfo(k2, v2)
                 conditions[k2] = con
-                print("- {0:30.30s} : {1:s}".format(con['Name'], con['Condition']))
+                print("- {0:30.30s} : {1:s}".format(con['Name'], con['ConditionNodeString']))
 
         if k == 'Outputs' :
             for k2, v2 in v.items() :
                 allItems[k2] = k
-                desc = ''
-                if 'Description' in v2 :
-                    desc = v2['Description']
-                #print("- ", k2, desc, v2['Value'])
+                output = extractOutputsInfo(k2, v2)
+                outputs[k2] = output
+                print("- {0:30.30s} : {1:40.40s} {2:s}".format(output['Name'], output['Description'], output['ValueNodeString']))
 
         if k == 'Resources' :
             for k2, v2 in v.items() :
                 allItems[k2] = k
-                #print("- ", k2, v2['Type'])
-                resourceTypeCounts[v2['Type']] += 1
+                resource = extractResourcesInfo(k2, v2)
+                resources[k2] = resource
+                print("- {0:30.30s} : {1:50.50s} {2:60.60s}".format(resource['Name'], resource['Type'], resource['PropertiesNodeString']))
+                resourceTypeCounts[resource['Type']] += 1
                 # And show references to other resources, parameters, etc
                 refs = getRefs(v2)
                 if len(refs) > 0 :
