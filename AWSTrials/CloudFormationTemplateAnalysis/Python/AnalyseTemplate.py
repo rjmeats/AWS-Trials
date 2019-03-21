@@ -91,7 +91,10 @@ def extractResourcesInfo(name, dIn) :
     knownTypes = [
             'AWS::EC2::VPC', 'AWS::EC2::Subnet', 'AWS::EC2::InternetGateway', 'AWS::EC2::VPCGatewayAttachment',
             'AWS::EC2::RouteTable', 'AWS::EC2::Route', 'AWS::EC2::SubnetRouteTableAssociation',
-            'AWS::ECS::Cluster', 'AWS::ECS::TaskDefinition',
+            'AWS::EC2::EIP', 'AWS::EC2::EIPAssociation',
+
+            'AWS::ECS::Cluster', 'AWS::EC2::Instance',
+            'AWS::ECS::TaskDefinition',
 
             'AWS::EC2::SecurityGroup', 'AWS::EC2::SecurityGroupIngress', 
 
@@ -109,10 +112,12 @@ def extractResourcesInfo(name, dIn) :
             'AWS::Events::Rule',
 
             'AWS::SNS::Topic',
+            'AWS::SQS::Queue', 'AWS::SQS::QueuePolicy',
 
             'AWS::SSM::Association',
 
             'AWS::ElasticLoadBalancingV2::LoadBalancer', 'AWS::ElasticLoadBalancingV2::Listener', 'AWS::ElasticLoadBalancingV2::TargetGroup',
+            'AWS::ElasticLoadBalancing::LoadBalancer',
 
             'AWS::ApplicationAutoScaling::ScalableTarget', 'AWS::ApplicationAutoScaling::ScalingPolicy',
 
@@ -130,6 +135,12 @@ def extractResourcesInfo(name, dIn) :
             'AWS::IoT::TopicRule',
 
             'AWS::ApiGateway::RestApi', 'AWS::ApiGateway::Deployment', 'AWS::ApiGateway::Resource', 'AWS::ApiGateway::Method', 'AWS::ApiGateway::Stage',
+
+            'AWS::Elasticsearch::Domain',
+
+            'AWS::Redshift::Cluster', 'AWS::Redshift::ClusterParameterGroup', 'AWS::Redshift::ClusterSubnetGroup',
+
+            'AWS::CodePipeline::Pipeline', 'AWS::CodeBuild::Project', 'AWS::CodeDeploy::Application', 
                 ]
 
     noValue = '-'
