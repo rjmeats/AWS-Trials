@@ -125,9 +125,6 @@ def extractResourcesInfo(name, dIn) :
 
             'AWS::Lambda::EventSourceMapping', 'AWS::Lambda::Function', 'AWS::Lambda::Permission',
 
-            'Custom::LoadLambda', 'Custom::TaskConfig', 'Custom::SchedulerSetupHelper', 'Custom::CreateUUID', 'Custom::ConfigureAccessLogBucket',
-            'Custom::ConfigureRateBasedRule', 'Custom::ConfigureWebAcl', 'Custom::PopulateReputationList', 'Custom::UUIDGenerator',
-
             'AWS::CloudFormation::Stack',
 
             'AWS::IoT::TopicRule',
@@ -151,7 +148,8 @@ def extractResourcesInfo(name, dIn) :
     dOut['FullNode'] = dIn
 
     if dOut['Type'] not in knownTypes :
-        print('Unknown resource type: ', dOut['Type'])
+        if not dOut['Type'].startswith('Custom::') :
+            print('Unknown resource type: ', dOut['Type'])
     return dOut
 
 
