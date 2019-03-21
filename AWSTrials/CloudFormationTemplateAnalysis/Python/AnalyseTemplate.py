@@ -29,6 +29,7 @@ def extractParameterInfo(name, dIn) :
 
     knownTypes = ['String', 'Number', 'CommaDelimitedList',
                 'AWS::EC2::KeyPair::KeyName', 
+                'List<AWS::EC2::AvailabilityZone::Name>',
                 'AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>']
 
     noValue = '-'
@@ -40,7 +41,7 @@ def extractParameterInfo(name, dIn) :
     dOut['FullNode'] = dIn
 
     if dOut['Type'] not in knownTypes :
-        print('Unknown parameter type: ', dOut['Type'])
+        print('Unknown parameter type: [', dOut['Type'], ']')
     return dOut
 
 def extractMetadataInfo(name, dIn) :
@@ -96,11 +97,17 @@ def extractResourcesInfo(name, dIn) :
             'AWS::S3::Bucket', 'AWS::S3::BucketPolicy',
             'AWS::CloudFront::CloudFrontOriginAccessIdentity', 'AWS::CloudFront::Distribution',
 
-            'AWS::IAM::Role', 'AWS::IAM::InstanceProfile', 'AWS::IAM::ManagedPolicy', 
+            'AWS::IAM::Role', 'AWS::IAM::InstanceProfile', 'AWS::IAM::ManagedPolicy', 'AWS::IAM::Policy', 
 
             'AWS::AutoScaling::AutoScalingGroup', 'AWS::AutoScaling::LaunchConfiguration', 'AWS::AutoScaling::ScalingPolicy',
 
             'AWS::CloudWatch::Alarm', 'AWS::CloudWatch::Dashboard',
+
+            'AWS::Logs::LogGroup',
+
+            'AWS::Events::Rule',
+
+            'AWS::SNS::Topic',
 
             'AWS::SSM::Association',
 
@@ -117,13 +124,14 @@ def extractResourcesInfo(name, dIn) :
 
             'AWS::Lambda::EventSourceMapping', 'AWS::Lambda::Function', 'AWS::Lambda::Permission',
 
-            'Custom::LoadLambda',
+            'Custom::LoadLambda', 'Custom::TaskConfig', 'Custom::SchedulerSetupHelper', 'Custom::CreateUUID', 'Custom::ConfigureAccessLogBucket',
+            'Custom::ConfigureRateBasedRule', 'Custom::ConfigureWebAcl', 'Custom::PopulateReputationList', 
 
             'AWS::CloudFormation::Stack',
 
             'AWS::IoT::TopicRule',
 
-            'AWS::ApiGateway::RestApi', 'AWS::ApiGateway::Deployment'
+            'AWS::ApiGateway::RestApi', 'AWS::ApiGateway::Deployment', 'AWS::ApiGateway::Resource', 'AWS::ApiGateway::Method', 'AWS::ApiGateway::Stage',
                 ]
 
     noValue = '-'
