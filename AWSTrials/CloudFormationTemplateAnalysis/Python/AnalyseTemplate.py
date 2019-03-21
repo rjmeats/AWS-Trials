@@ -96,7 +96,7 @@ def extractResourcesInfo(name, dIn) :
             'AWS::S3::Bucket', 'AWS::S3::BucketPolicy',
             'AWS::CloudFront::CloudFrontOriginAccessIdentity', 'AWS::CloudFront::Distribution',
 
-            'AWS::IAM::Role', 'AWS::IAM::InstanceProfile',
+            'AWS::IAM::Role', 'AWS::IAM::InstanceProfile', 'AWS::IAM::ManagedPolicy', 
 
             'AWS::AutoScaling::AutoScalingGroup', 'AWS::AutoScaling::LaunchConfiguration', 'AWS::AutoScaling::ScalingPolicy',
 
@@ -115,9 +115,15 @@ def extractResourcesInfo(name, dIn) :
 
             'AWS::KinesisFirehose::DeliveryStream', 'AWS::Kinesis::Stream', 'AWS::KinesisAnalytics::Application', 'AWS::KinesisAnalytics::ApplicationOutput',
 
-            'AWS::Lambda::EventSourceMapping', 'AWS::Lambda::Function',
+            'AWS::Lambda::EventSourceMapping', 'AWS::Lambda::Function', 'AWS::Lambda::Permission',
 
             'Custom::LoadLambda',
+
+            'AWS::CloudFormation::Stack',
+
+            'AWS::IoT::TopicRule',
+
+            'AWS::ApiGateway::RestApi', 'AWS::ApiGateway::Deployment'
                 ]
 
     noValue = '-'
