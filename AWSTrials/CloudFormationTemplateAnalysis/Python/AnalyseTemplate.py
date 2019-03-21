@@ -91,6 +91,7 @@ def extractResourcesInfo(name, dIn) :
     knownTypes = [
             'AWS::EC2::VPC', 'AWS::EC2::Subnet', 'AWS::EC2::InternetGateway', 'AWS::EC2::VPCGatewayAttachment',
             'AWS::EC2::RouteTable', 'AWS::EC2::Route', 'AWS::EC2::SubnetRouteTableAssociation',
+            'AWS::ECS::Cluster', 'AWS::ECS::TaskDefinition',
 
             'AWS::EC2::SecurityGroup', 'AWS::EC2::SecurityGroupIngress', 
 
@@ -125,7 +126,7 @@ def extractResourcesInfo(name, dIn) :
             'AWS::Lambda::EventSourceMapping', 'AWS::Lambda::Function', 'AWS::Lambda::Permission',
 
             'Custom::LoadLambda', 'Custom::TaskConfig', 'Custom::SchedulerSetupHelper', 'Custom::CreateUUID', 'Custom::ConfigureAccessLogBucket',
-            'Custom::ConfigureRateBasedRule', 'Custom::ConfigureWebAcl', 'Custom::PopulateReputationList', 
+            'Custom::ConfigureRateBasedRule', 'Custom::ConfigureWebAcl', 'Custom::PopulateReputationList', 'Custom::UUIDGenerator',
 
             'AWS::CloudFormation::Stack',
 
