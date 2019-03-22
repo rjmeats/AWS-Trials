@@ -142,6 +142,7 @@ def extractResourcesInfo(name, dIn) :
             'AWS::IoT::TopicRule', 'AWS::IoT::Thing', 'AWS::IoT::Policy',
 
             'AWS::ApiGateway::RestApi', 'AWS::ApiGateway::Deployment', 'AWS::ApiGateway::Resource', 'AWS::ApiGateway::Method', 'AWS::ApiGateway::Stage',
+            'AWS::ApiGateway::ApiKey'
 
             'AWS::Elasticsearch::Domain',
 
@@ -158,7 +159,9 @@ def extractResourcesInfo(name, dIn) :
 
             'AWS::SageMaker::Model', 'AWS::SageMaker::NotebookInstance',
 
-            'AWS::EMR::Cluster', 'AWS::EMR::Step'
+            'AWS::EMR::Cluster', 'AWS::EMR::Step',
+
+            'AWS::StepFunctions::StateMachine'
                 ]
 
     unknownType = False
