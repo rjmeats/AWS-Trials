@@ -29,8 +29,11 @@ def extractParameterInfo(name, dIn) :
 
     knownTypes = ['String', 'Number', 'CommaDelimitedList',
                 'AWS::EC2::KeyPair::KeyName', 
+                'AWS::EC2::VPC::Id', 
                 'List<AWS::EC2::AvailabilityZone::Name>',
-                'AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>']
+                'List<AWS::EC2::Subnet::Id>',
+                'AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>',
+                ]
 
     noValue = '-'
     dOut = {}
@@ -40,9 +43,11 @@ def extractParameterInfo(name, dIn) :
     dOut['Default'] = dIn.get('Default', noValue)
     dOut['FullNode'] = dIn
 
+    unknownType = False
     if dOut['Type'] not in knownTypes :
-        print('Unknown parameter type: [', dOut['Type'], ']')
-    return dOut
+        unknownType = True
+    return dOut, unknownType
+
 
 def extractMetadataInfo(name, dIn) :
 
@@ -93,7 +98,7 @@ def extractResourcesInfo(name, dIn) :
             'AWS::EC2::NatGateway', 'AWS::EC2::VPCEndpoint', 
             'AWS::EC2::RouteTable', 'AWS::EC2::Route', 'AWS::EC2::SubnetRouteTableAssociation',
             'AWS::EC2::EIP', 'AWS::EC2::EIPAssociation',
-            'AWS::ECS::Cluster', 'AWS::EC2::Instance',
+            'AWS::ECS::Cluster', 'AWS::EC2::Instance', 'AWS::ECS::Service',
             'AWS::ECS::TaskDefinition',
 
             'AWS::EC2::SecurityGroup', 'AWS::EC2::SecurityGroupIngress', 
@@ -116,7 +121,7 @@ def extractResourcesInfo(name, dIn) :
 
             'AWS::CloudTrail::Trail', 
 
-            'AWS::SNS::Topic',
+            'AWS::SNS::Topic', 'AWS::SNS::TopicPolicy', 'AWS::SNS::Subscription',
             'AWS::SQS::Queue', 'AWS::SQS::QueuePolicy',
 
             'AWS::SSM::Parameter', 'AWS::SSM::Association', 
@@ -131,7 +136,8 @@ def extractResourcesInfo(name, dIn) :
             'AWS::DynamoDB::Table',
 
             'AWS::Cognito::UserPool', 'AWS::Cognito::UserPoolClient', 'AWS::Cognito::IdentityPool', 'AWS::Cognito::IdentityPoolRoleAttachment',
-            'AWS::Cognito::UserPoolUser',
+            'AWS::Cognito::UserPoolUser', 'AWS::Cognito::UserPoolGroup', 'AWS::Cognito::UserPoolUserToGroupAttachment',
+
 
             'AWS::KinesisFirehose::DeliveryStream', 'AWS::Kinesis::Stream', 'AWS::KinesisAnalytics::Application', 'AWS::KinesisAnalytics::ApplicationOutput',
 
@@ -142,7 +148,7 @@ def extractResourcesInfo(name, dIn) :
             'AWS::IoT::TopicRule', 'AWS::IoT::Thing', 'AWS::IoT::Policy',
 
             'AWS::ApiGateway::RestApi', 'AWS::ApiGateway::Deployment', 'AWS::ApiGateway::Resource', 'AWS::ApiGateway::Method', 'AWS::ApiGateway::Stage',
-            'AWS::ApiGateway::ApiKey'
+            'AWS::ApiGateway::ApiKey',
 
             'AWS::Elasticsearch::Domain',
 
@@ -164,7 +170,6 @@ def extractResourcesInfo(name, dIn) :
             'AWS::StepFunctions::StateMachine'
                 ]
 
-    unknownType = False
 
     noValue = '-'
     dOut = {}
@@ -181,20 +186,20 @@ def extractResourcesInfo(name, dIn) :
 
     dOut['FullNode'] = dIn
 
+    unknownType = False
     if dOut['Type'] not in knownTypes :
         if not dOut['Type'].startswith('Custom::') :
-            print('Unknown resource type: ', dOut['Type'])
             unknownType = True
     return dOut, unknownType
 
 
-# Dictionary mapping the names of all items under the top-level section to their template section
-allItems = {}
-
-def analyseConfiguration(data) :
+def analyseConfiguration(data, printDetails=True) :
     
     resourceTypeCounts = collections.Counter()
     referencesCounts = collections.Counter()
+
+    # Dictionary mapping the names of all items under the top-level section to their template section
+    allItems = {}
 
     # Split out top-level items into their own dictionaries (or strings for a couple of simple cases)
     templateFormatVersion = ''
@@ -204,65 +209,78 @@ def analyseConfiguration(data) :
     mappings = {}
     conditions = {}
     resources = {}
+    unknownParameterTypes = []
     unknownResourceTypes = []
     outputs = {}
 
     for k,v in data.items() :
         # Print main section names
-        print(k, ":")
-        print("")
+        if printDetails :
+            print(k, ":")
+            print("")
         if k == 'AWSTemplateFormatVersion' :
             templateFormatVersion = v
-            print("- ", templateFormatVersion)
+            if printDetails :
+                print("- ", templateFormatVersion)
 
         if k == 'Description' :
             description = v
-            print("- ", description)
+            if printDetails :
+                print("- ", description)
 
         if k == 'Parameters' :
             for k2, v2 in v.items() :
-                allItems[k2] = k
-                parameter = extractParameterInfo(k2, v2)
+                allItems[k2] = 'Parameter'
+                parameter, unknownType = extractParameterInfo(k2, v2)
                 parameters[k2] = parameter
-                print("- {0:20.20s} : {1:50.50s}  {2:100.100s}".format(parameter['Name'], parameter['Type'], parameter['Description']))
+                if unknownType:
+                    if parameter['Type'] not in unknownParameterTypes :
+                        unknownParameterTypes.append(parameter['Type'])
+                if printDetails :
+                    print("- {0:20.20s} : {1:50.50s}  {2:100.100s}".format(parameter['Name'], parameter['Type'], parameter['Description']))
 
         if k == 'Metadata' :
             for k2, v2 in v.items() :
                 allItems[k2] = k
                 md = extractMetadataInfo(k2, v2)
                 metadata[k2] = md
-                print("- {0:30.30s}".format(md['Name']))
+                if printDetails :
+                    print("- {0:30.30s}".format(md['Name']))
 
         if k == 'Mappings' :
             for k2, v2 in v.items() :
-                allItems[k2] = k
+                allItems[k2] = 'Mapping'
                 mapping = extractMappingsInfo(k2, v2)
                 mappings[k2] = mapping
-                print("- {0:20.20s} : {1:30.30s} => {2:s}".format(mapping['Name'], ' | '.join(mapping['Options']), ' + '.join(mapping['Fields'])))
+                if printDetails :
+                    print("- {0:20.20s} : {1:30.30s} => {2:s}".format(mapping['Name'], ' | '.join(mapping['Options']), ' + '.join(mapping['Fields'])))
 
         if k == 'Conditions' :
             for k2, v2 in v.items() :
-                allItems[k2] = k
+                allItems[k2] = 'Condition'
                 con = extractConditionsInfo(k2, v2)
                 conditions[k2] = con
-                print("- {0:30.30s} : {1:s}".format(con['Name'], con['ConditionNodeString']))
+                if printDetails :
+                    print("- {0:30.30s} : {1:s}".format(con['Name'], con['ConditionNodeString']))
 
         if k == 'Outputs' :
             for k2, v2 in v.items() :
-                allItems[k2] = k
+                allItems[k2] = 'Output'
                 output = extractOutputsInfo(k2, v2)
                 outputs[k2] = output
-                print("- {0:30.30s} : {1:40.40s} {2:s}".format(output['Name'], output['Description'], output['ValueNodeString']))
+                if printDetails :
+                    print("- {0:30.30s} : {1:40.40s} {2:s}".format(output['Name'], output['Description'], output['ValueNodeString']))
 
         if k == 'Resources' :
             for k2, v2 in v.items() :
-                allItems[k2] = k
+                allItems[k2] = 'Resource'
                 resource, unknownType = extractResourcesInfo(k2, v2)
                 resources[k2] = resource
                 if unknownType:
                     if resource['Type'] not in unknownResourceTypes :
                         unknownResourceTypes.append(resource['Type'])
-                print("- {0:30.30s} : {1:50.50s} {2:60.60s}".format(resource['Name'], resource['Type'], resource['PropertiesNodeString']))
+                if printDetails :
+                    print("- {0:30.30s} : {1:50.50s} {2:60.60s}".format(resource['Name'], resource['Type'], resource['PropertiesNodeString']))
                 resourceTypeCounts[resource['Type']] += 1
                 # And show references to other resources, parameters, etc
                 refs = getRefs(v2)
@@ -271,56 +289,79 @@ def analyseConfiguration(data) :
                     for r in refs :
                         referencesCounts[r] += 1
 
-        print("")
-        print("===========================================================================================================")
-        print("")
+        if printDetails :
+            print()
+            print("===========================================================================================================")
+            print()
 
-    print("Resource types:")
-    print
-    for c in resourceTypeCounts.keys() :
-        print(c, " : ", resourceTypeCounts[c])
+    if printDetails :
+        print("Resource types:")
+        print()
+        for c in resourceTypeCounts.keys() :
+            print("{0:50.50s} : {1:d}".format(c, referencesCounts[c]))
 
-    print("")
-    print("Resources referenced from other resources:")
-    print
-    for c in referencesCounts.keys() :
-        pass
-        #print(c, " : ", referencesCounts[c])
+        print()
+        print("Resources referenced from other resources:")
+        print()
+        for c in referencesCounts.keys() :
+            pass
+            print("{0:50.50s} : {1:d}".format(c, referencesCounts[c]))
 
-    print("")
-    print("All top-level items:")
-    print
-    for k,v in allItems.items() :
-        pass
-        # print(k, v)
+        print()
+        print("All top-level items:")
+        print()
+        for k,v in allItems.items() :
+            pass
+            print("{0:50.50s} : {1:30.30s}".format(k, v))
+
+    if len(unknownParameterTypes) > 0 :
+        print("*** Unknown parameter type(s): ", unknownParameterTypes)
 
     if len(unknownResourceTypes) > 0 :
-        print()
-        print("Unknown resource types: ", unknownResourceTypes)
+        print("*** Unknown resource type(s): ", unknownResourceTypes)
 
-def main(filename) :
+def main(filenameArg) :
 
-    if not os.path.isfile(filename) :
-        print("***",  filename, "is not a file", file=sys.stderr)
+    filenames = []
+
+    if os.path.isfile(filenameArg) :
+        filenames.append(filenameArg)
+    elif os.path.isdir(filenameArg):
+        dirname = filenameArg
+        for filename in os.listdir(dirname) :
+            filenames.append(dirname + "/" + filename)
+    else :
+        print("***",  filename, "is not a file or directory", file=sys.stderr)
         return
 
-    print("Processing file: ", filename)
+    printDetails = len(filenames) == 2
 
-    with open(filename) as f:
-        str = f.read()
-        print("File ", filename, " is ", len(str), " characters long")
+    for filename in filenames:
+        with open(filename) as f:
+            str = f.read()
 
-    (data,format) = cfn_flip.load(str)
-
-    print("... format is ", format)
-
-    analyseConfiguration(data)
+        print("Processing file ", filename, ", length", len(str), "characters ...")
+        (data,format) = cfn_flip.load(str)
+        if printDetails :
+            print("... format is ", format)
+        analyseConfiguration(data, printDetails)
 
 if __name__ == "__main__" :
 
     if len(sys.argv) == 1 :
-        print("No filename command line argument provided")
+        print("*** No filename/dirname command line argument provided")
         exit()
 
     filename = sys.argv[1]
     main(filename)
+
+
+# =============================
+
+# Process all templates in a folder as a batch
+# Control level of output
+# Dump csv-type summary table of template v resource-types used
+# Check for other parameter types not captured
+# Set up listing of references between resouces 
+# Record references to implicit variables, e.g. Region
+# For known types allow List<...> rather than listing lists as a separate type ?
