@@ -30,8 +30,8 @@ def extractParameterInfo(name, dIn) :
     knownTypes = ['String', 'Number', 'CommaDelimitedList',
                 'AWS::EC2::KeyPair::KeyName', 
                 'AWS::EC2::VPC::Id', 
-                'List<AWS::EC2::AvailabilityZone::Name>',
-                'List<AWS::EC2::Subnet::Id>',
+                'AWS::EC2::AvailabilityZone::Name',
+                'AWS::EC2::Subnet::Id',
                 'AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>',
                 ]
 
@@ -44,8 +44,14 @@ def extractParameterInfo(name, dIn) :
     dOut['FullNode'] = dIn
 
     unknownType = False
-    if dOut['Type'] not in knownTypes :
+    if dOut['Type'].startswith('List<') and dOut['Type'].endswith('>') :
+        baseType = dOut['Type'].replace('List<', '').replace('>', '')
+    else :
+        baseType = dOut['Type']
+
+    if baseType not in knownTypes :
         unknownType = True
+
     return dOut, unknownType
 
 
@@ -320,6 +326,17 @@ def analyseConfiguration(data, printDetails=True) :
     if len(unknownResourceTypes) > 0 :
         print("*** Unknown resource type(s): ", unknownResourceTypes)
 
+    results = {}
+    results['Decription'] = description
+    results['Parameters'] = parameters
+    results['Metadata'] = metadata
+    results['Mappings'] = mappings
+    results['Conditions'] = conditions
+    results['Resources'] = resources
+    results['Outputs'] = outputs
+    results['AllItems'] = allItems
+    return results
+
 def main(filenameArg) :
 
     filenames = []
@@ -336,6 +353,7 @@ def main(filenameArg) :
 
     printDetails = len(filenames) == 2
 
+    contents = {}
     for filename in filenames:
         with open(filename) as f:
             str = f.read()
@@ -344,7 +362,9 @@ def main(filenameArg) :
         (data,format) = cfn_flip.load(str)
         if printDetails :
             print("... format is ", format)
-        analyseConfiguration(data, printDetails)
+        results = analyseConfiguration(data, printDetails)
+        contents['Template'] = filename
+        contents['Results'] = results
 
 if __name__ == "__main__" :
 
@@ -358,10 +378,6 @@ if __name__ == "__main__" :
 
 # =============================
 
-# Process all templates in a folder as a batch
-# Control level of output
 # Dump csv-type summary table of template v resource-types used
-# Check for other parameter types not captured
 # Set up listing of references between resouces 
 # Record references to implicit variables, e.g. Region
-# For known types allow List<...> rather than listing lists as a separate type ?
