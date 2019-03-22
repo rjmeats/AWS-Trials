@@ -90,9 +90,9 @@ def extractResourcesInfo(name, dIn) :
 
     knownTypes = [
             'AWS::EC2::VPC', 'AWS::EC2::Subnet', 'AWS::EC2::InternetGateway', 'AWS::EC2::VPCGatewayAttachment',
+            'AWS::EC2::NatGateway', 'AWS::EC2::VPCEndpoint', 
             'AWS::EC2::RouteTable', 'AWS::EC2::Route', 'AWS::EC2::SubnetRouteTableAssociation',
             'AWS::EC2::EIP', 'AWS::EC2::EIPAssociation',
-
             'AWS::ECS::Cluster', 'AWS::EC2::Instance',
             'AWS::ECS::TaskDefinition',
 
@@ -104,6 +104,7 @@ def extractResourcesInfo(name, dIn) :
             'AWS::IAM::Role', 'AWS::IAM::InstanceProfile', 'AWS::IAM::ManagedPolicy', 'AWS::IAM::Policy', 
 
             'AWS::AutoScaling::AutoScalingGroup', 'AWS::AutoScaling::LaunchConfiguration', 'AWS::AutoScaling::ScalingPolicy',
+            'AWS::AutoScaling::LifecycleHook',
 
             'AWS::CloudWatch::Alarm', 'AWS::CloudWatch::Dashboard',
 
@@ -141,7 +142,18 @@ def extractResourcesInfo(name, dIn) :
             'AWS::Redshift::Cluster', 'AWS::Redshift::ClusterParameterGroup', 'AWS::Redshift::ClusterSubnetGroup',
 
             'AWS::CodePipeline::Pipeline', 'AWS::CodeBuild::Project', 'AWS::CodeDeploy::Application', 
+
+            'AWS::EFS::FileSystem', 'AWS::EFS::MountTarget', 
+
+            'AWS::ElasticBeanstalk::Application', 'AWS::ElasticBeanstalk::ApplicationVersion', 'AWS::ElasticBeanstalk::ConfigurationTemplate', 
+            'AWS::ElasticBeanstalk::Environment',
+
+            'AWS::Glue::Database', 'AWS::Glue::Job', 'AWS::Glue::Trigger', 
+            
+            'AWS::SageMaker::Model', 'AWS::SageMaker::NotebookInstance'
                 ]
+
+    unknownType = False
 
     noValue = '-'
     dOut = {}
@@ -161,7 +173,8 @@ def extractResourcesInfo(name, dIn) :
     if dOut['Type'] not in knownTypes :
         if not dOut['Type'].startswith('Custom::') :
             print('Unknown resource type: ', dOut['Type'])
-    return dOut
+            unknownType = True
+    return dOut, unknownType
 
 
 # Dictionary mapping the names of all items under the top-level section to their template section
@@ -180,6 +193,7 @@ def analyseConfiguration(data) :
     mappings = {}
     conditions = {}
     resources = {}
+    unknownResourceTypes = []
     outputs = {}
 
     for k,v in data.items() :
@@ -232,8 +246,11 @@ def analyseConfiguration(data) :
         if k == 'Resources' :
             for k2, v2 in v.items() :
                 allItems[k2] = k
-                resource = extractResourcesInfo(k2, v2)
+                resource, unknownType = extractResourcesInfo(k2, v2)
                 resources[k2] = resource
+                if unknownType:
+                    if resource['Type'] not in unknownResourceTypes :
+                        unknownResourceTypes.append(resource['Type'])
                 print("- {0:30.30s} : {1:50.50s} {2:60.60s}".format(resource['Name'], resource['Type'], resource['PropertiesNodeString']))
                 resourceTypeCounts[resource['Type']] += 1
                 # And show references to other resources, parameters, etc
@@ -265,6 +282,10 @@ def analyseConfiguration(data) :
     for k,v in allItems.items() :
         pass
         # print(k, v)
+
+    if len(unknownResourceTypes) > 0 :
+        print()
+        print("Unknown resource types: ", unknownResourceTypes)
 
 def main(filename) :
 
