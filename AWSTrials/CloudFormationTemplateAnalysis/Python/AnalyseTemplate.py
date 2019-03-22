@@ -103,19 +103,25 @@ def extractResourcesInfo(name, dIn) :
 
             'AWS::IAM::Role', 'AWS::IAM::InstanceProfile', 'AWS::IAM::ManagedPolicy', 'AWS::IAM::Policy', 
 
+            'AWS::KMS::Key', 'AWS::KMS::Alias',
+
             'AWS::AutoScaling::AutoScalingGroup', 'AWS::AutoScaling::LaunchConfiguration', 'AWS::AutoScaling::ScalingPolicy',
             'AWS::AutoScaling::LifecycleHook',
 
             'AWS::CloudWatch::Alarm', 'AWS::CloudWatch::Dashboard',
 
-            'AWS::Logs::LogGroup',
+            'AWS::Logs::LogGroup', 'AWS::Logs::LogStream',
 
             'AWS::Events::Rule',
+
+            'AWS::CloudTrail::Trail', 
 
             'AWS::SNS::Topic',
             'AWS::SQS::Queue', 'AWS::SQS::QueuePolicy',
 
-            'AWS::SSM::Association',
+            'AWS::SSM::Parameter', 'AWS::SSM::Association', 
+            'AWS::SSM::MaintenanceWindow', 'AWS::SSM::MaintenanceWindowTarget', 'AWS::SSM::MaintenanceWindowTask', 
+            'AWS::SSM::ResourceDataSync',
 
             'AWS::ElasticLoadBalancingV2::LoadBalancer', 'AWS::ElasticLoadBalancingV2::Listener', 'AWS::ElasticLoadBalancingV2::TargetGroup',
             'AWS::ElasticLoadBalancing::LoadBalancer',
@@ -133,7 +139,7 @@ def extractResourcesInfo(name, dIn) :
 
             'AWS::CloudFormation::Stack',
 
-            'AWS::IoT::TopicRule',
+            'AWS::IoT::TopicRule', 'AWS::IoT::Thing', 'AWS::IoT::Policy',
 
             'AWS::ApiGateway::RestApi', 'AWS::ApiGateway::Deployment', 'AWS::ApiGateway::Resource', 'AWS::ApiGateway::Method', 'AWS::ApiGateway::Stage',
 
@@ -149,8 +155,10 @@ def extractResourcesInfo(name, dIn) :
             'AWS::ElasticBeanstalk::Environment',
 
             'AWS::Glue::Database', 'AWS::Glue::Job', 'AWS::Glue::Trigger', 
-            
-            'AWS::SageMaker::Model', 'AWS::SageMaker::NotebookInstance'
+
+            'AWS::SageMaker::Model', 'AWS::SageMaker::NotebookInstance',
+
+            'AWS::EMR::Cluster', 'AWS::EMR::Step'
                 ]
 
     unknownType = False
