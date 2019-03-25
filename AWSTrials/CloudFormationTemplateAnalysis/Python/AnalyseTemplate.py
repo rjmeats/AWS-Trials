@@ -2,6 +2,7 @@ import sys
 import os
 import collections
 import cfn_flip         # https://github.com/awslabs/aws-cfn-template-flip
+import csv
 
 # https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/template-reference.html
 
@@ -335,11 +336,30 @@ def analyseConfiguration(data, printDetails=True) :
     results['Mappings'] = mappings
     results['Conditions'] = conditions
     results['Resources'] = resources
+    results['ResourceTypeCounts'] = resourceTypeCounts
     results['Outputs'] = outputs
     results['AllItems'] = allItems
     return results
 
-def main(filenameArg) :
+def generateResourceTypeCSV(contents, outDir) :
+
+    CSVFilename = outDir + "/" + "resourceTypes.csv" if outDir != "" else ""
+    if CSVFilename == "" :
+        print("No output CSV file specified for resourcen types")
+        return
+
+    print("Writing resource types CSV output to file ", CSVFilename, " ...")
+    with open(CSVFilename, "w", newline="") as csvfile:
+        myCSVWriter = csv.writer(csvfile, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
+        myCSVWriter.writerow(["Template", "Resource Type", "Cases"])
+
+        for template, content in contents.items() :
+            counts = content['ResourceTypeCounts']
+            for c in counts.keys() :
+                tname = template if not template.endswith(".template") else template.replace(".template", "")
+                myCSVWriter.writerow([ tname, c, counts[c] ])
+
+def main(filenameArg, outDir = "") :
 
     filenames = []
 
@@ -352,14 +372,21 @@ def main(filenameArg) :
             if os.path.isdir(fullpath) :
                 print("*** ignoring sub-directory ", filename)
             elif os.path.isfile(fullpath) :
-                filenames.append(dirname + "/" + filename)
+                filenames.append(fullpath)
             else :
                 print("*** ignoring non-file ", filename)
     else :
         print("***",  filename, "is not a file or directory", file=sys.stderr)
         return
 
-    printDetails = len(filenames) == 2
+    bulkRun = len(filenames) > 1
+    if outDir == "" :
+        outDir = "./output"
+
+    if not os.path.isdir(outDir) :
+        print("*** ", outDir, " is not a directory")
+        outDir = ""
+        return
 
     contents = {}
     for filename in filenames:
@@ -368,11 +395,20 @@ def main(filenameArg) :
 
         print("Processing file ", filename, ", length", len(str), "characters ...")
         (data,format) = cfn_flip.load(str)
-        if printDetails :
+        if not bulkRun :
             print("... format is ", format)
-        results = analyseConfiguration(data, printDetails)
-        contents['Template'] = filename
-        contents['Results'] = results
+            print()
+        results = analyseConfiguration(data, not bulkRun)
+
+        baseTemplateName = os.path.basename(filename)
+        contents[baseTemplateName] = results
+
+    # Generate a csv file of template v resource type (+ count) listings
+    #   xxx.template, resource, count
+        
+    if bulkRun :
+        generateResourceTypeCSV(contents, outDir)
+
 
 if __name__ == "__main__" :
 
@@ -381,11 +417,14 @@ if __name__ == "__main__" :
         exit()
 
     filename = sys.argv[1]
-    main(filename)
+
+    outDir = sys.argv[2] if len(sys.argv) > 2 else ""
+
+    main(filename, outDir)
 
 
 # =============================
 
-# Dump csv-type summary table of template v resource-types used / count
+# Write template analysis out to a text file as well as the screen ?
 # Set up listing of references between resouces 
 # Record references to implicit variables, e.g. Region
