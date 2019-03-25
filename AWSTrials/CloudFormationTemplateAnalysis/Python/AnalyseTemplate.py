@@ -9,20 +9,49 @@ import csv
 # Recursive check through nested dictionaries defining attributes of a resource, to
 # find references to other resources, parameters etc, and return these as a list
 
-def getRefs(d) :
+def getRefs(fullk, d, level=0) :
+
+    dump = False
+    if fullk.startswith("RawDatatoS3Role") :
+        dump = True
+        print("...", fullk, level)
 
     refs = []
     for k,v in d.items() :
+        if dump :
+            print("... ", level, k)
+
         if k == 'Ref' :
             refs.append(v)
         elif k == 'Fn::GetAtt':            
                 ref = v[0] + '.' + v[1]
                 #print(k, v, ref)
                 refs.append(ref)
+                if ref.startswith("EncryptionKey") :
+                    print("Found Enc", fullk, ref)
         else :
+            if dump :
+                print("... type is", type(v), type(d))
+            if isinstance(v, dict) :
+                print(" === subtype of a dict !")
             if type(v) == type(d) :
+                fullk = fullk + "." + k
+                refs.extend(getRefs(fullk, v, level+1))
+            elif type(v) == list :
+                print("... a list!")                
+                for listItem in v:
+                    fullk = fullk + "." + k + "[]"
+                    print("... a list item", fullk, listItem)                
+                    sys.stdout.flush()
+                    if type(listItem) == type(d) :
+                        refs.extend(getRefs(fullk, listItem, level+1))
+                    elif type(listItem) == list :
+                        print(".... a nested list")
+                    else :
+                        print(".... a list end point")
 
-                refs.extend(getRefs(v))
+        sys.stdout.flush()
+
 
     return refs
 
@@ -184,6 +213,7 @@ def extractResourcesInfo(name, dIn) :
     dOut = {}
     dOut['Name'] = name
     dOut['Type'] = dIn.get('Type', noValue)
+    dOut['Condition'] = dIn.get('Condition', noValue)
     dOut['PropertiesNodeString'] = str(dIn.get('Properties', {}))
 
     dOut['CreationPolicy'] = str(dIn.get('CreationPolicy', {}))
@@ -201,6 +231,16 @@ def extractResourcesInfo(name, dIn) :
             unknownType = True
     return dOut, unknownType
 
+# https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/pseudo-parameter-reference.html
+AWS_PseudoParameters = ['AWS::AccountId', 'AWS::NotificationARNs', 'AWS::Partition', 'AWS::Region', 'AWS::StackId', 'AWS::StackName', 'AWS::URLSuffix']
+
+def removeField(resourceName) :
+    r = resourceName
+    dotIndex = r.find(".")
+    if dotIndex != -1 :
+        r = resourceName[0:dotIndex]
+
+    return r
 
 def analyseConfiguration(data) :
     
@@ -224,7 +264,16 @@ def analyseConfiguration(data) :
 
     for k,v in data.items() :
         # Print main section names
-        print(k, ":")
+        try :
+            itemCount = len(v)
+        except TypeError :
+            itemCount = -1
+
+        if itemCount >= 0 :
+            print("{0:s} : {1:d} item{2:s}".format(k, itemCount, "s" if itemCount != 1 else ""))
+        else :
+            print(k)
+
         print("")
         if k == 'AWSTemplateFormatVersion' :
             templateFormatVersion = v
@@ -283,10 +332,11 @@ def analyseConfiguration(data) :
                 print("- {0:30.30s} : {1:50.50s} {2:60.60s}".format(resource['Name'], resource['Type'], resource['PropertiesNodeString']))
                 resourceTypeCounts[resource['Type']] += 1
                 # And show references to other resources, parameters, etc
-                refs = getRefs(v2)
+                refs = getRefs(k2, v2)
                 if len(refs) > 0 :
                     #print("  - has refs to ", refs)
                     for r in refs :
+                        r = removeField(r)
                         referencesCounts[r] += 1
 
         print()
@@ -296,21 +346,26 @@ def analyseConfiguration(data) :
     print("Resource types:")
     print()
     for c in resourceTypeCounts.keys() :
-        print("{0:50.50s} : {1:d}".format(c, resourceTypeCounts[c]))
+        print("- {0:50.50s} : {1:d}".format(c, resourceTypeCounts[c]))
 
     print()
     print("Resources referenced from other resources:")
     print()
     for c in referencesCounts.keys() :
-        pass
-        print("{0:50.50s} : {1:d}".format(c, referencesCounts[c]))
+        itemType = '***TypeNotFound***'
+        if c in allItems :
+            itemType = allItems[c]
+        elif c in AWS_PseudoParameters :
+            itemType = 'Pseudo-parameter'
+
+        print("- {0:50.50s} : {1:s} : {2:d}".format(c, itemType, referencesCounts[c]))
 
     print()
     print("All top-level items:")
     print()
     for k,v in allItems.items() :
         pass
-        print("{0:50.50s} : {1:30.30s}".format(k, v))
+        print("- {0:50.50s} : {1:30.30s}".format(k, v))
 
     if len(unknownParameterTypes) > 0 :
         print("*** Unknown parameter type(s): ", unknownParameterTypes)
@@ -381,7 +436,7 @@ def main(filenameArg, outDir = "") :
         # Redirect output to file if not doing a bulk run
         print("Processing file ", filename, ", length", len(str), "characters ...")
         oldstdout = sys.stdout
-        if bulkRun :
+        if bulkRun : # and 1 == 2:
             sys.stdout = None
         elif outDir != "" :
             outputFileName = outDir + "/" + baseTemplateName + ".txt"
