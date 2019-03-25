@@ -202,7 +202,7 @@ def extractResourcesInfo(name, dIn) :
     return dOut, unknownType
 
 
-def analyseConfiguration(data, printDetails=True) :
+def analyseConfiguration(data) :
     
     resourceTypeCounts = collections.Counter()
     referencesCounts = collections.Counter()
@@ -224,18 +224,15 @@ def analyseConfiguration(data, printDetails=True) :
 
     for k,v in data.items() :
         # Print main section names
-        if printDetails :
-            print(k, ":")
-            print("")
+        print(k, ":")
+        print("")
         if k == 'AWSTemplateFormatVersion' :
             templateFormatVersion = v
-            if printDetails :
-                print("- ", templateFormatVersion)
+            print("- ", templateFormatVersion)
 
         if k == 'Description' :
             description = v
-            if printDetails :
-                print("- ", description)
+            print("- ", description)
 
         if k == 'Parameters' :
             for k2, v2 in v.items() :
@@ -245,40 +242,35 @@ def analyseConfiguration(data, printDetails=True) :
                 if unknownType:
                     if parameter['Type'] not in unknownParameterTypes :
                         unknownParameterTypes.append(parameter['Type'])
-                if printDetails :
-                    print("- {0:20.20s} : {1:50.50s}  {2:100.100s}".format(parameter['Name'], parameter['Type'], parameter['Description']))
+                print("- {0:20.20s} : {1:50.50s}  {2:.100s}".format(parameter['Name'], parameter['Type'], parameter['Description']))
 
         if k == 'Metadata' :
             for k2, v2 in v.items() :
                 allItems[k2] = k
                 md = extractMetadataInfo(k2, v2)
                 metadata[k2] = md
-                if printDetails :
-                    print("- {0:30.30s}".format(md['Name']))
+                print("- {0:30.30s}".format(md['Name']))
 
         if k == 'Mappings' :
             for k2, v2 in v.items() :
                 allItems[k2] = 'Mapping'
                 mapping = extractMappingsInfo(k2, v2)
                 mappings[k2] = mapping
-                if printDetails :
-                    print("- {0:20.20s} : {1:30.30s} => {2:s}".format(mapping['Name'], ' | '.join(mapping['Options']), ' + '.join(mapping['Fields'])))
+                print("- {0:20.20s} : {1:30.30s} => {2:s}".format(mapping['Name'], ' | '.join(mapping['Options']), ' + '.join(mapping['Fields'])))
 
         if k == 'Conditions' :
             for k2, v2 in v.items() :
                 allItems[k2] = 'Condition'
                 con = extractConditionsInfo(k2, v2)
                 conditions[k2] = con
-                if printDetails :
-                    print("- {0:30.30s} : {1:s}".format(con['Name'], con['ConditionNodeString']))
+                print("- {0:30.30s} : {1:s}".format(con['Name'], con['ConditionNodeString']))
 
         if k == 'Outputs' :
             for k2, v2 in v.items() :
                 allItems[k2] = 'Output'
                 output = extractOutputsInfo(k2, v2)
                 outputs[k2] = output
-                if printDetails :
-                    print("- {0:30.30s} : {1:40.40s} {2:s}".format(output['Name'], output['Description'], output['ValueNodeString']))
+                print("- {0:30.30s} : {1:40.40s} {2:s}".format(output['Name'], output['Description'], output['ValueNodeString']))
 
         if k == 'Resources' :
             for k2, v2 in v.items() :
@@ -288,8 +280,7 @@ def analyseConfiguration(data, printDetails=True) :
                 if unknownType:
                     if resource['Type'] not in unknownResourceTypes :
                         unknownResourceTypes.append(resource['Type'])
-                if printDetails :
-                    print("- {0:30.30s} : {1:50.50s} {2:60.60s}".format(resource['Name'], resource['Type'], resource['PropertiesNodeString']))
+                print("- {0:30.30s} : {1:50.50s} {2:60.60s}".format(resource['Name'], resource['Type'], resource['PropertiesNodeString']))
                 resourceTypeCounts[resource['Type']] += 1
                 # And show references to other resources, parameters, etc
                 refs = getRefs(v2)
@@ -298,30 +289,28 @@ def analyseConfiguration(data, printDetails=True) :
                     for r in refs :
                         referencesCounts[r] += 1
 
-        if printDetails :
-            print()
-            print("===========================================================================================================")
-            print()
+        print()
+        print("===========================================================================================================")
+        print()
 
-    if printDetails :
-        print("Resource types:")
-        print()
-        for c in resourceTypeCounts.keys() :
-            print("{0:50.50s} : {1:d}".format(c, referencesCounts[c]))
+    print("Resource types:")
+    print()
+    for c in resourceTypeCounts.keys() :
+        print("{0:50.50s} : {1:d}".format(c, resourceTypeCounts[c]))
 
-        print()
-        print("Resources referenced from other resources:")
-        print()
-        for c in referencesCounts.keys() :
-            pass
-            print("{0:50.50s} : {1:d}".format(c, referencesCounts[c]))
+    print()
+    print("Resources referenced from other resources:")
+    print()
+    for c in referencesCounts.keys() :
+        pass
+        print("{0:50.50s} : {1:d}".format(c, referencesCounts[c]))
 
-        print()
-        print("All top-level items:")
-        print()
-        for k,v in allItems.items() :
-            pass
-            print("{0:50.50s} : {1:30.30s}".format(k, v))
+    print()
+    print("All top-level items:")
+    print()
+    for k,v in allItems.items() :
+        pass
+        print("{0:50.50s} : {1:30.30s}".format(k, v))
 
     if len(unknownParameterTypes) > 0 :
         print("*** Unknown parameter type(s): ", unknownParameterTypes)
@@ -341,12 +330,7 @@ def analyseConfiguration(data, printDetails=True) :
     results['AllItems'] = allItems
     return results
 
-def generateResourceTypeCSV(contents, outDir) :
-
-    CSVFilename = outDir + "/" + "resourceTypes.csv" if outDir != "" else ""
-    if CSVFilename == "" :
-        print("No output CSV file specified for resourcen types")
-        return
+def generateResourceTypeCSV(contents, CSVFilename) :
 
     print("Writing resource types CSV output to file ", CSVFilename, " ...")
     with open(CSVFilename, "w", newline="") as csvfile:
@@ -390,25 +374,39 @@ def main(filenameArg, outDir = "") :
 
     contents = {}
     for filename in filenames:
+        baseTemplateName = os.path.basename(filename)
         with open(filename) as f:
             str = f.read()
 
+        # Redirect output to file if not doing a bulk run
         print("Processing file ", filename, ", length", len(str), "characters ...")
-        (data,format) = cfn_flip.load(str)
-        if not bulkRun :
-            print("... format is ", format)
-            print()
-        results = analyseConfiguration(data, not bulkRun)
+        oldstdout = sys.stdout
+        if bulkRun :
+            sys.stdout = None
+        elif outDir != "" :
+            outputFileName = outDir + "/" + baseTemplateName + ".txt"
+            print("Output redirected to file ", outputFileName)
+            sys.stdout = open(outputFileName, 'w')
 
-        baseTemplateName = os.path.basename(filename)
+        (data,format) = cfn_flip.load(str)
+        print("{0:s}  ({1:s})".format(baseTemplateName, format))
+        print()
+        print()
+
+        results = analyseConfiguration(data)
+        sys.stdout = oldstdout
+        # End of redirect
+
         contents[baseTemplateName] = results
 
     # Generate a csv file of template v resource type (+ count) listings
-    #   xxx.template, resource, count
-        
+    #   xxx.template, resource, count        
     if bulkRun :
-        generateResourceTypeCSV(contents, outDir)
-
+        if outDir != "" :
+            CSVFilename = outDir + "/" + "resourceTypes.csv"
+            generateResourceTypeCSV(contents, CSVFilename)
+        else :
+            print("No output CSV file specified for resource types")
 
 if __name__ == "__main__" :
 
@@ -417,7 +415,6 @@ if __name__ == "__main__" :
         exit()
 
     filename = sys.argv[1]
-
     outDir = sys.argv[2] if len(sys.argv) > 2 else ""
 
     main(filename, outDir)
@@ -425,6 +422,5 @@ if __name__ == "__main__" :
 
 # =============================
 
-# Write template analysis out to a text file as well as the screen ?
-# Set up listing of references between resouces 
+# Set up listing of cross-references between resouces 
 # Record references to implicit variables, e.g. Region
