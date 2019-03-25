@@ -27,10 +27,12 @@ def getRefs(d) :
 
 def extractParameterInfo(name, dIn) :
 
-    knownTypes = ['String', 'Number', 'CommaDelimitedList',
+    knownTypes = [
+                'String', 'Number', 
+                'CommaDelimitedList',
+                'AWS::EC2::AvailabilityZone::Name',
                 'AWS::EC2::KeyPair::KeyName', 
                 'AWS::EC2::VPC::Id', 
-                'AWS::EC2::AvailabilityZone::Name',
                 'AWS::EC2::Subnet::Id',
                 'AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>',
                 ]
@@ -346,7 +348,13 @@ def main(filenameArg) :
     elif os.path.isdir(filenameArg):
         dirname = filenameArg
         for filename in os.listdir(dirname) :
-            filenames.append(dirname + "/" + filename)
+            fullpath = dirname + "/" + filename
+            if os.path.isdir(fullpath) :
+                print("*** ignoring sub-directory ", filename)
+            elif os.path.isfile(fullpath) :
+                filenames.append(dirname + "/" + filename)
+            else :
+                print("*** ignoring non-file ", filename)
     else :
         print("***",  filename, "is not a file or directory", file=sys.stderr)
         return
@@ -378,6 +386,6 @@ if __name__ == "__main__" :
 
 # =============================
 
-# Dump csv-type summary table of template v resource-types used
+# Dump csv-type summary table of template v resource-types used / count
 # Set up listing of references between resouces 
 # Record references to implicit variables, e.g. Region
