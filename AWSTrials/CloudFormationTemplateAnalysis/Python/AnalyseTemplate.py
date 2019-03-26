@@ -259,7 +259,7 @@ AWS_PseudoParameters = ['AWS::AccountId', 'AWS::NotificationARNs', 'AWS::Partiti
 
 def removeField(resourceName) :
     r = resourceName
-    dotIndex = r.find(".")
+    dotIndex = r.find('.')
     if dotIndex != -1 :
         r = resourceName[0:dotIndex]
 
@@ -356,15 +356,63 @@ def analyseConfiguration(data) :
                 resourceTypeCounts[resource['Type']] += 1
                 # And show references to other resources, parameters, etc
                 refs = getRefs(k2, k2, v2)
+                resource['RefersTo'] = refs
+                resource['ReferencedBy'] = []   # Filled in below
                 if len(refs) > 0 :
                     for k,r in refs :
-                        print("  - has ref to ", k, " : ", r)
+
+                        #print("  - has ref to ", k, " : ", r)
                         r = removeField(r)
                         referencesCounts[r] += 1
 
         print()
         print("===========================================================================================================")
         print()
+
+    # Set up referenced-from info, for each item referenced from a resource
+    for k,v in resources.items() :
+        for field, item in v['RefersTo'] :
+            baseItem = removeField(item)
+            if baseItem in allItems :
+                itemType = allItems[baseItem]
+            elif baseItem in AWS_PseudoParameters :
+                itemType = 'Pseudo-parameter'
+            else :
+                itemType = '?'
+                print("*** Could not find item type for", baseItem, " referenced from ", k)
+
+            if itemType == 'Resource' :
+                if baseItem in resources :
+                    referencedResource = resources[baseItem]
+                    referencedByInfo = (k, v['Type'], field)
+                    referencedResource['ReferencedBy'].append(referencedByInfo)
+                else :
+                    print("*** Could not find referenced resource ", baseItem, " referenced from ", k)
+            #print(k, field, item, baseItem, itemType)
+
+    print()
+    print("===========================================================================================================")
+    print()
+
+    itemCount = len(resources)
+    print("{0:s} : {1:d} item{2:s}".format("Resources II", itemCount, "s" if itemCount != 1 else ""))
+    print()
+
+    for k,v in resources.items() :
+        print("- {0:s} ( {1:s} )".format(v['Name'], v['Type']))
+        refs = v['RefersTo']
+        if len(refs) > 0 :
+            for k2,ref in refs :
+                print("  - has ref to", ref, "as", k2)
+        refsFrom = v['ReferencedBy']
+        if len(refsFrom) > 0 :
+            for (referrer, referrerType, referrerField) in refsFrom :
+                adjustedField = referrerField[len(referrer)+1:]
+                print("  - has ref from", referrer, "(", referrerType, ")", "as", adjustedField)
+
+    print()
+    print("===========================================================================================================")
+    print()
 
     print("Resource types:")
     print()
@@ -459,7 +507,7 @@ def main(filenameArg, outDir = "") :
         # Redirect output to file if not doing a bulk run
         print("Processing file ", filename, ", length", len(str), "characters ...")
         oldstdout = sys.stdout
-        if bulkRun : # and 1 == 2:
+        if bulkRun and 1 == 2:
             sys.stdout = None
         elif outDir != "" :
             outputFileName = outDir + "/" + baseTemplateName + ".txt"
