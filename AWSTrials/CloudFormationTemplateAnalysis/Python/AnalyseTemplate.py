@@ -6,52 +6,75 @@ import csv
 
 # https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/template-reference.html
 
-# Recursive check through nested dictionaries defining attributes of a resource, to
+# Recursive check through lists and dictionaries defining attributes of a resource, to
 # find references to other resources, parameters etc, and return these as a list
+# Two sorts of references to other resources (or parameters, etc):
+# 
+#   1) an element with a key of "Ref", with the value identifying the resource
+#
+#                "ShardCount": {
+#                    "Ref": "SourceStreamSize"
+#                }
+#
+#   2) A GetAtt function call, whether the value of the resource reference is a combination of the
+#   two elements in the array
+#
+#                "TargetKeyId": {
+#                    "Fn::GetAtt": [
+#                        "EncryptionKey",
+#                        "Arn"
+#                    ]
+#                }
+#
+#   In the above examples, we would want to pull out the following as resource references:
+#
+#   1) ShardCount refers to SourceStreamSize
+#   2) TargetKeyId refers to EncryptionKey.Arn
 
-def getRefs(fullk, d, level=0) :
+def getRefs(fullKey, key, node, level=0) :
 
     dump = False
-    if fullk.startswith("RawDatatoS3Role") :
-        dump = True
-        print("...", fullk, level)
+    if dump :
+        print("...", level, fullKey, " : ", type(node))
 
     refs = []
-    for k,v in d.items() :
-        if dump :
-            print("... ", level, k)
 
-        if k == 'Ref' :
-            refs.append(v)
-        elif k == 'Fn::GetAtt':            
-                ref = v[0] + '.' + v[1]
-                #print(k, v, ref)
-                refs.append(ref)
-                if ref.startswith("EncryptionKey") :
-                    print("Found Enc", fullk, ref)
+    if isinstance(node, dict) :
+        for k,v in node.items() :
+            thisfullKey = fullKey + "." + k
+            refs.extend(getRefs(thisfullKey, k, v, level+1))
+    elif type(node) == list :
+
+        # Have we got a GetAtt function ? (See case 2 in comments above). If so, just combine
+        # the two array elements to form the referenced item, don't process the array further
+        if key == 'Fn::GetAtt' :
+            if len(node) == 2 :
+                ref = node[0] + '.' + node[1]
+                adjustedFullKey = fullKey[0:-11]     # Remove the .Fn::GetAtt from the end of the key
+                refs.append( (adjustedFullKey, ref) )
+                if dump :
+                    print("   ... found GetAtt ", ref, adjustedFullKey)
+            else :
+                print("*** GetAtt array not expected size", fullKey, node)
         else :
-            if dump :
-                print("... type is", type(v), type(d))
-            if isinstance(v, dict) :
-                print(" === subtype of a dict !")
-            if type(v) == type(d) :
-                fullk = fullk + "." + k
-                refs.extend(getRefs(fullk, v, level+1))
-            elif type(v) == list :
-                print("... a list!")                
-                for listItem in v:
-                    fullk = fullk + "." + k + "[]"
-                    print("... a list item", fullk, listItem)                
-                    sys.stdout.flush()
-                    if type(listItem) == type(d) :
-                        refs.extend(getRefs(fullk, listItem, level+1))
-                    elif type(listItem) == list :
-                        print(".... a nested list")
-                    else :
-                        print(".... a list end point")
-
-        sys.stdout.flush()
-
+            itemIndex = 0
+            for item in node:
+                thisfullKey = fullKey + "[" + str(itemIndex) + "]"
+                refs.extend(getRefs(thisfullKey, key, item, level))
+                itemIndex += 1
+    else :
+        if dump :
+            print("   ... fully expanded end for ", level, fullKey, " : ", node)
+        
+        # Have we got a Ref value ? (See case 1 in comments above)
+        if key == 'Ref' :
+            if fullKey.endswith(".Ref") :
+                adjustedfullKey = fullKey[0:-4]     # Remove the .Ref from the end of the key
+                refs.append( (adjustedfullKey, node) )
+                if dump :
+                    print("   ... found ref ", level, adjustedfullKey, " : ", node)
+            else :
+                print("*** array of Refs not handled perhaps ????", fullKey)
 
     return refs
 
@@ -232,7 +255,7 @@ def extractResourcesInfo(name, dIn) :
     return dOut, unknownType
 
 # https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/pseudo-parameter-reference.html
-AWS_PseudoParameters = ['AWS::AccountId', 'AWS::NotificationARNs', 'AWS::Partition', 'AWS::Region', 'AWS::StackId', 'AWS::StackName', 'AWS::URLSuffix']
+AWS_PseudoParameters = ['AWS::AccountId', 'AWS::NotificationARNs', 'AWS::Partition', 'AWS::Region', 'AWS::StackId', 'AWS::StackName', 'AWS::URLSuffix', 'AWS::NoValue']
 
 def removeField(resourceName) :
     r = resourceName
@@ -332,10 +355,10 @@ def analyseConfiguration(data) :
                 print("- {0:30.30s} : {1:50.50s} {2:60.60s}".format(resource['Name'], resource['Type'], resource['PropertiesNodeString']))
                 resourceTypeCounts[resource['Type']] += 1
                 # And show references to other resources, parameters, etc
-                refs = getRefs(k2, v2)
+                refs = getRefs(k2, k2, v2)
                 if len(refs) > 0 :
-                    #print("  - has refs to ", refs)
-                    for r in refs :
+                    for k,r in refs :
+                        print("  - has ref to ", k, " : ", r)
                         r = removeField(r)
                         referencesCounts[r] += 1
 
