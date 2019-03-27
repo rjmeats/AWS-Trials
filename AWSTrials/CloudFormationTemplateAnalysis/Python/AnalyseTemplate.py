@@ -265,13 +265,24 @@ def removeField(resourceName) :
 
     return r
 
+def getItemType(itemName) :
+    baseItem = removeField(itemName)
+    if baseItem in allItems :
+        itemType = allItems[baseItem]
+    elif baseItem in AWS_PseudoParameters :
+        itemType = 'Pseudo-parameter'
+    else :
+        itemType = '?'
+        print("*** Could not find item type for", itemName)
+    return itemType
+
+# Dictionary mapping the names of all items under the top-level section to their template section
+allItems = {}
+
 def analyseConfiguration(data) :
     
     resourceTypeCounts = collections.Counter()
     referencesCounts = collections.Counter()
-
-    # Dictionary mapping the names of all items under the top-level section to their template section
-    allItems = {}
 
     # Split out top-level items into their own dictionaries (or strings for a couple of simple cases)
     templateFormatVersion = ''
@@ -372,15 +383,8 @@ def analyseConfiguration(data) :
     # Set up referenced-from info, for each item referenced from a resource
     for k,v in resources.items() :
         for field, item in v['RefersTo'] :
+            itemType = getItemType(item)
             baseItem = removeField(item)
-            if baseItem in allItems :
-                itemType = allItems[baseItem]
-            elif baseItem in AWS_PseudoParameters :
-                itemType = 'Pseudo-parameter'
-            else :
-                itemType = '?'
-                print("*** Could not find item type for", baseItem, " referenced from ", k)
-
             if itemType == 'Resource' :
                 if baseItem in resources :
                     referencedResource = resources[baseItem]
@@ -401,9 +405,11 @@ def analyseConfiguration(data) :
     for k,v in resources.items() :
         print("- {0:s} ( {1:s} )".format(v['Name'], v['Type']))
         refs = v['RefersTo']
-        if len(refs) > 0 :
-            for k2,ref in refs :
-                print("  - has ref to", ref, "as", k2)
+        for k2,ref in refs :
+            refType = getItemType(ref)
+            if refType not in ['Parameter', 'Pseudo-parameter'] :
+                adjustedField = k2[len(v['Name'])+1:]
+                print("  - has ref to", refType, ref, "as", adjustedField)
         refsFrom = v['ReferencedBy']
         if len(refsFrom) > 0 :
             for (referrer, referrerType, referrerField) in refsFrom :
@@ -423,12 +429,7 @@ def analyseConfiguration(data) :
     print("Resources referenced from other resources:")
     print()
     for c in referencesCounts.keys() :
-        itemType = '***TypeNotFound***'
-        if c in allItems :
-            itemType = allItems[c]
-        elif c in AWS_PseudoParameters :
-            itemType = 'Pseudo-parameter'
-
+        itemType = getItemType(c)
         print("- {0:50.50s} : {1:s} : {2:d}".format(c, itemType, referencesCounts[c]))
 
     print()
