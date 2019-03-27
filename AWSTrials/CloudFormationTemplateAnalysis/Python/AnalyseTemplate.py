@@ -265,6 +265,16 @@ def removeField(resourceName) :
 
     return r
 
+def addItemType(itemName, itemType) :
+    if itemName in allItems :
+        currentType = allItems[itemName]
+        if type(currentType) == list :
+            currentType.append(itemType)
+        else :
+            allItems[itemName] = [currentType, itemType]
+    else :
+        allItems[itemName] = itemType
+
 def getItemType(itemName) :
     baseItem = removeField(itemName)
     if baseItem in allItems :
@@ -287,6 +297,7 @@ def analyseConfiguration(data) :
     # Split out top-level items into their own dictionaries (or strings for a couple of simple cases)
     templateFormatVersion = ''
     description = ''
+    allItems.clear()
     parameters = {}
     metadata = {}
     mappings = {}
@@ -319,7 +330,8 @@ def analyseConfiguration(data) :
 
         if k == 'Parameters' :
             for k2, v2 in v.items() :
-                allItems[k2] = 'Parameter'
+                addItemType(k2, 'Parameter')
+                #allItems[k2] = 'Parameter'
                 parameter, unknownType = extractParameterInfo(k2, v2)
                 parameters[k2] = parameter
                 if unknownType:
@@ -329,35 +341,40 @@ def analyseConfiguration(data) :
 
         if k == 'Metadata' :
             for k2, v2 in v.items() :
-                allItems[k2] = k
+                addItemType(k2, k)
+                #allItems[k2] = k
                 md = extractMetadataInfo(k2, v2)
                 metadata[k2] = md
                 print("- {0:30.30s}".format(md['Name']))
 
         if k == 'Mappings' :
             for k2, v2 in v.items() :
-                allItems[k2] = 'Mapping'
+                addItemType(k2, 'Mapping')
+                #allItems[k2] = 'Mapping'
                 mapping = extractMappingsInfo(k2, v2)
                 mappings[k2] = mapping
                 print("- {0:20.20s} : {1:30.30s} => {2:s}".format(mapping['Name'], ' | '.join(mapping['Options']), ' + '.join(mapping['Fields'])))
 
         if k == 'Conditions' :
             for k2, v2 in v.items() :
-                allItems[k2] = 'Condition'
+                addItemType(k2, 'Condition')
+                #allItems[k2] = 'Condition'
                 con = extractConditionsInfo(k2, v2)
                 conditions[k2] = con
                 print("- {0:30.30s} : {1:s}".format(con['Name'], con['ConditionNodeString']))
 
         if k == 'Outputs' :
             for k2, v2 in v.items() :
-                allItems[k2] = 'Output'
+                addItemType(k2, 'Output')
+                #allItems[k2] = 'Output'
                 output = extractOutputsInfo(k2, v2)
                 outputs[k2] = output
                 print("- {0:30.30s} : {1:40.40s} {2:s}".format(output['Name'], output['Description'], output['ValueNodeString']))
 
         if k == 'Resources' :
             for k2, v2 in v.items() :
-                allItems[k2] = 'Resource'
+                addItemType(k2, 'Resource')                
+                #allItems[k2] = 'Resource'
                 resource, unknownType = extractResourcesInfo(k2, v2)
                 resources[k2] = resource
                 if unknownType:
@@ -385,7 +402,7 @@ def analyseConfiguration(data) :
         for field, item in v['RefersTo'] :
             itemType = getItemType(item)
             baseItem = removeField(item)
-            if itemType == 'Resource' :
+            if itemType == 'Resource' or 'Resource' in itemType:
                 if baseItem in resources :
                     referencedResource = resources[baseItem]
                     referencedByInfo = (k, v['Type'], field)
@@ -407,6 +424,9 @@ def analyseConfiguration(data) :
         refs = v['RefersTo']
         for k2,ref in refs :
             refType = getItemType(ref)
+            if type(refType) == list and 'Resource' in refType :
+                # Resource name also used by e.g. an Output or a Condition
+                refType = 'Resource'
             if refType not in ['Parameter', 'Pseudo-parameter'] :
                 adjustedField = k2[len(v['Name'])+1:]
                 print("  - has ref to", refType, ref, "as", adjustedField)
@@ -430,14 +450,17 @@ def analyseConfiguration(data) :
     print()
     for c in referencesCounts.keys() :
         itemType = getItemType(c)
-        print("- {0:50.50s} : {1:s} : {2:d}".format(c, itemType, referencesCounts[c]))
+        if type(itemType) == list and 'Resource' in refType :
+            # Resource name also used by e.g. an Output or a Condition
+            itemType = 'Resource'
+        print("- {0:50.50s} : {1:s} : {2:d}".format(c, str(itemType), referencesCounts[c]))
 
     print()
     print("All top-level items:")
     print()
     for k,v in allItems.items() :
         pass
-        print("- {0:50.50s} : {1:30.30s}".format(k, v))
+        print("- {0:50.50s} : {1:30.30s}".format(k, str(v)))
 
     if len(unknownParameterTypes) > 0 :
         print("*** Unknown parameter type(s): ", unknownParameterTypes)
