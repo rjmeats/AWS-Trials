@@ -286,6 +286,15 @@ def getItemType(itemName) :
         print("*** Could not find item type for", itemName)
     return itemType
 
+# In detailed Resource listing, option not to include role-related resources and links. Also apply
+# to some other resource types that clutter up the basic application structure
+
+def suppressRolesAndSimilar(resourceType, showRoles) :
+    if resourceType in ['AWS::IAM::Role', 'AWS::KMS::Key', 'AWS::KMS::Alias'] and not showRoles:
+        return True
+    else :
+        return False
+
 # Dictionary mapping the names of all items under the top-level section to their template section
 allItems = {}
 
@@ -418,8 +427,14 @@ def analyseConfiguration(data) :
     itemCount = len(resources)
     print("{0:s} : {1:d} item{2:s}".format("Resources II", itemCount, "s" if itemCount != 1 else ""))
     print()
+    if(not showRoles) :
+        print("- omitting role and other similar resources")
+        print()
 
     for k,v in resources.items() :
+        if suppressRolesAndSimilar(v['Type'], showRoles) :
+            continue
+
         print("- {0:s} ( {1:s} )".format(v['Name'], v['Type']))
         refs = v['RefersTo']
         for k2,ref in refs :
@@ -428,12 +443,18 @@ def analyseConfiguration(data) :
                 # Resource name also used by e.g. an Output or a Condition
                 refType = 'Resource'
             if refType not in ['Parameter', 'Pseudo-parameter'] :
+                if refType == 'Resource' :
+                    referredToResourceType = resources[removeField(ref)]['Type']
+                    if suppressRolesAndSimilar(referredToResourceType, showRoles) :
+                        continue
                 adjustedField = k2[len(v['Name'])+1:]
                 print("  - has ref to", refType, ref, "as", adjustedField)
         refsFrom = v['ReferencedBy']
         if len(refsFrom) > 0 :
             for (referrer, referrerType, referrerField) in refsFrom :
-                adjustedField = referrerField[len(referrer)+1:]
+                adjustedField = referrerField[len(referrer)+1:]                    
+                if suppressRolesAndSimilar(referrerType, showRoles) :
+                    continue
                 print("  - has ref from", referrer, "(", referrerType, ")", "as", adjustedField)
 
     print()
@@ -469,7 +490,7 @@ def analyseConfiguration(data) :
         print("*** Unknown resource type(s): ", unknownResourceTypes)
 
     results = {}
-    results['Decription'] = description
+    results['Description'] = description
     results['Parameters'] = parameters
     results['Metadata'] = metadata
     results['Mappings'] = mappings
@@ -493,7 +514,26 @@ def generateResourceTypeCSV(contents, CSVFilename) :
                 tname = template if not template.endswith(".template") else template.replace(".template", "")
                 myCSVWriter.writerow([ tname, c, counts[c] ])
 
-def main(filenameArg, outDir = "") :
+def generateSectionsCSV(contents, CSVFilename) :
+
+    print("Writing sections CSV output to file ", CSVFilename, " ...")
+    with open(CSVFilename, "w", newline="") as csvfile:
+        myCSVWriter = csv.writer(csvfile, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
+        myCSVWriter.writerow(["Template", "Section", "Cases"])
+
+        for template, content in contents.items() :
+            for section, sectionContents in content.items() :
+                if type(sectionContents) == list or isinstance(sectionContents, dict) :
+                    c = len(sectionContents)
+                else :
+                    c = 1
+
+                if not section in ['ResourceTypeCounts', 'AllItems'] :
+                    tname = template if not template.endswith(".template") else template.replace(".template", "")
+                    myCSVWriter.writerow([ tname, section, c ])
+
+
+def main(filenameArg, outDir="", showRoles=True) :
 
     filenames = []
 
@@ -555,6 +595,8 @@ def main(filenameArg, outDir = "") :
         if outDir != "" :
             CSVFilename = outDir + "/" + "resourceTypes.csv"
             generateResourceTypeCSV(contents, CSVFilename)
+            CSVFilename = outDir + "/" + "sections.csv"
+            generateSectionsCSV(contents, CSVFilename)
         else :
             print("No output CSV file specified for resource types")
 
@@ -566,11 +608,12 @@ if __name__ == "__main__" :
 
     filename = sys.argv[1]
     outDir = sys.argv[2] if len(sys.argv) > 2 else ""
+    showRolesArg = sys.argv[3] if len(sys.argv) > 3 else ""
+    showRoles = not showRolesArg.lower() in ['roles=no', 'roles=n', 'roles=off', 'noroles', 'no-roles'] 
 
-    main(filename, outDir)
+    main(filename, outDir, showRoles)
 
 
 # =============================
 
-# Set up listing of cross-references between resouces 
-# Record references to implicit variables, e.g. Region
+# Set up CSV counting items in each section, e.g. number of conditions, resources, parameters, outputs by template
