@@ -614,6 +614,3 @@ if __name__ == "__main__" :
     main(filename, outDir, showRoles)
 
 
-# =============================
-
-# Set up CSV counting items in each section, e.g. number of conditions, resources, parameters, outputs by template
