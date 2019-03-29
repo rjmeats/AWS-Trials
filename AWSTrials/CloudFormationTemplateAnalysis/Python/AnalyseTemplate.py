@@ -3,12 +3,13 @@ import os
 import collections
 import cfn_flip         # https://github.com/awslabs/aws-cfn-template-flip
 import csv
+import re
 
 # https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/template-reference.html
 
 # Recursive check through lists and dictionaries defining attributes of a resource, to
 # find references to other resources, parameters etc, and return these as a list
-# Two sorts of references to other resources (or parameters, etc):
+# Three sorts of references to other resources (or parameters, etc):
 # 
 #   1) an element with a key of "Ref", with the value identifying the resource
 #
@@ -16,7 +17,7 @@ import csv
 #                    "Ref": "SourceStreamSize"
 #                }
 #
-#   2) A GetAtt function call, whether the value of the resource reference is a combination of the
+#   2) A GetAtt function call, where the value of the resource reference is a combination of the
 #   two elements in the array
 #
 #                "TargetKeyId": {
@@ -26,10 +27,23 @@ import csv
 #                    ]
 #                }
 #
+#   3) A Sub function call, with the string passed in contains ${variable} identifiers to be substituted in
+#   eg for the region, or IDs of other resources. Sometimes, but not always, the full field is the variable. And
+#   potentially there can be more than one item to be substituted.
+#
+#       AutoScalingGroupName: !Sub ${EFSAutoScalingGroup}
+#       Value: !Sub ${AWS::StackName}-instance
+#       DashboardName: !Sub ${AWS::StackName}-${AWS::Region}
+#       Resource:
+#            - !Sub arn:aws:autoscaling:${AWS::Region}:${AWS::AccountId}:autoScalingGroup:*:autoScalingGroupName/${EFSAutoScalingGroup}
+#
 #   In the above examples, we would want to pull out the following as resource references:
 #
 #   1) ShardCount refers to SourceStreamSize
 #   2) TargetKeyId refers to EncryptionKey.Arn
+#   3.1) AutoScalingGroupName refers to EFSAutoScalingGroup
+#   3.2) Value refers to (e.g.) rjm-efs-stack-instance
+#   3.3) DashboardName refers to (e.g.): rjm-efs-stack-eu-west-2
 
 def getRefs(fullKey, key, node, level=0) :
 
@@ -56,6 +70,9 @@ def getRefs(fullKey, key, node, level=0) :
                     print("   ... found GetAtt ", ref, adjustedFullKey)
             else :
                 print("*** GetAtt array not expected size", fullKey, node)
+        elif key == 'Fn::Sub' :
+            # Might mean more complex version of Sub function being used, where mapping of values occurs before substitution ?
+            print("*** Sub function has unexpected array node", fullKey, node)
         else :
             itemIndex = 0
             for item in node:
@@ -75,6 +92,32 @@ def getRefs(fullKey, key, node, level=0) :
                     print("   ... found ref ", level, adjustedfullKey, " : ", node)
             else :
                 print("*** array of Refs not handled perhaps ????", fullKey)
+        # Have we got a Sub function ? (See case 3 in comments above)
+        if key == 'Fn::Sub' :
+            if fullKey.endswith("Fn::Sub") :
+                adjustedfullKey = fullKey[0:-8]     # Remove the .Fn::Sub from the end of the key
+                # Find the ${} entries within the string using a regular expression, and add them
+                # all as references to other resources and similar
+                paramRe = r"\${.+?}"
+                matches = re.findall(paramRe, node)
+                if dump :
+                    print("   ... found Sub ", level, adjustedfullKey, " : ", matches, node)
+                for parameter in matches :
+                    if parameter.startswith("${") and parameter.endswith("}") :
+                        ref = parameter[2:-1]
+                        refs.append( (adjustedfullKey, ref) )
+                    else :
+                        print("*** Sub not handled ????", fullKey, node, parameter)
+
+                if len(matches) == 0 :
+                    pass
+                    # Can happen, no parameter specified in node string - perhaps due to manual editting to no longer need one, but
+                    # Sub was retained for potential use of a parameter again in future.
+                    #print("*** Sub not handled - 0 refs found ????", fullKey, node)
+
+                # But if not, could have multiple ${..} entries, perhaps embedded in other text .... Probably need to look at using re
+            else :
+                print("*** array of Subs not handled perhaps ????", fullKey)
 
     return refs
 
@@ -579,6 +622,8 @@ def main(filenameArg, outDir="", showRoles=True) :
             sys.stdout = open(outputFileName, 'w')
 
         (data,format) = cfn_flip.load(str)
+        #(data) = cfn_flip.load_yaml(str)
+        #format = "yaml"
         print("{0:s}  ({1:s})".format(baseTemplateName, format))
         print()
         print()
