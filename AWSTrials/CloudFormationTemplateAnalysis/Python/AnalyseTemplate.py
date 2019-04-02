@@ -107,7 +107,7 @@ def getRefs(fullKey, key, node, level=0) :
                         ref = parameter[2:-1]
                         refs.append( (adjustedfullKey, ref) )
                     else :
-                        print("*** Sub not handled ????", fullKey, node, parameter)
+                        print("*** Sub parameter not handled ????", fullKey, node, parameter)
 
                 if len(matches) == 0 :
                     pass
@@ -117,7 +117,7 @@ def getRefs(fullKey, key, node, level=0) :
 
                 # But if not, could have multiple ${..} entries, perhaps embedded in other text .... Probably need to look at using re
             else :
-                print("*** array of Subs not handled perhaps ????", fullKey)
+                print("*** array of Sub functions not handled perhaps ????", fullKey)
 
     return refs
 
