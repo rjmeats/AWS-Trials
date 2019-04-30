@@ -7,9 +7,28 @@ def lambda_handler(event, context):
 	b = ''
 	for bucket in s3.buckets.all() :
 		b = b + ',' + bucket.name
+
+	session = boto3.Session()
+
+	cred = session.get_credentials()
+	if cred.token == None:
+		token = "-"
+	else :
+		token = cred.token
+
+	# get_user() with no parameters fails when called within a Lambda environment
+	# user = boto3.client('iam').get_user()
+
+	region = session.region_name
+
 	return {
 		'statusCode': 999,
-		'body': json.dumps(b)
+		'body': json.dumps(b),
+		'access_key': json.dumps(cred.access_key),
+		'secret_key': json.dumps(cred.secret_key),
+		'token': json.dumps(token),
+		'method': json.dumps(cred.method),
+		'region': json.dumps(region)
 	}
 
 
