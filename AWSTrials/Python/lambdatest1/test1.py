@@ -4,6 +4,37 @@ import json
 import boto3
 import botocore
 
+def add_env_var(d, name) :
+	if name in os.environ :
+		val = os.environ[name]
+	else :
+		val = "-"
+	d[name] = val
+	
+def get_lambda_env_vars() :
+	d =  {}
+	add_env_var(d, "_HANDLER")
+	add_env_var(d, "AWS_REGION")
+	add_env_var(d, "AWS_EXECUTION_ENV")
+	add_env_var(d, "AWS_LAMBDA_FUNCTION_NAME")
+	add_env_var(d, "AWS_LAMBDA_FUNCTION_MEMORY_SIZE")
+	add_env_var(d, "AWS_LAMBDA_FUNCTION_VERSION")
+	add_env_var(d, "AWS_LAMBDA_LOG_GROUP_NAME")
+	add_env_var(d, "AWS_LAMBDA_LOG_STREAM_NAME")
+	add_env_var(d, "AWS_ACCESS_KEY_ID")
+	add_env_var(d, "AWS_SECRET_ACCESS_KEY")
+	add_env_var(d, "AWS_SESSION_TOKEN")
+	add_env_var(d, "LANG")
+	add_env_var(d, "TZ")
+	add_env_var(d, "LAMBDA_TASK_ROOT")
+	add_env_var(d, "LAMBDA_RUNTIME_DIR")
+	add_env_var(d, "PATH")
+	add_env_var(d, "LD_LIBRARY_PATH")
+	add_env_var(d, "PYTHONPATH")
+	add_env_var(d, "AWS_LAMBDA_RUNTIME_API")
+	
+	return d
+
 def lambda_handler(event, context):
 
 	python_version = sys.version
@@ -12,10 +43,7 @@ def lambda_handler(event, context):
 
 	sys_path = sys.path
 	sys_platform = sys.platform
-	if "LAMBDA_TASK_ROOT" in os.environ :
-		lambda_task_root = os.environ["LAMBDA_TASK_ROOT"]
-	else :
-		lambda_task_root = "-"
+	env_vars = get_lambda_env_vars()
 
 	# Some info about the 'event' parameter
 	event_type = str(type(event))
@@ -73,7 +101,7 @@ def lambda_handler(event, context):
 		'secret_key': cred.secret_key,
 		'token': token,
 		'method': cred.method,
-		'lambda_task_root' : lambda_task_root,
+		'known_env_vars': env_vars,
 		'botocore_version' : botocore_version,
 		'boto3_version' : boto3_version,
 		'event_type' : event_type,
