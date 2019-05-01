@@ -6,7 +6,9 @@ echo
 
 OUTFILE="invoke.out.txt"
 
-aws lambda invoke --function-name testPython1 $OUTFILE
+PAYLOAD='10.34'
+
+aws lambda invoke --function-name testPython1 --payload "$PAYLOAD" $OUTFILE
 
 echo
 echo Lambda output
