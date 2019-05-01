@@ -4,6 +4,7 @@ import json
 import boto3
 import botocore
 
+# Import functions from .py file alongside this one
 import test2_extra as t2e
 
 def lambda_handler(event, context):
