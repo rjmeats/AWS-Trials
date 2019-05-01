@@ -9,6 +9,7 @@ mkdir package
 cd package
 
 pip install bs4 --target .
+pip install requests --target .
 
 echo
 echo

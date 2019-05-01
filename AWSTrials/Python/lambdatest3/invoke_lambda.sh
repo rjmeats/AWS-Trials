@@ -6,7 +6,7 @@ echo
 
 OUTFILE="invoke.out.txt"
 
-PAYLOAD='{ "site" : "https://x.x" }'
+PAYLOAD='{ "site" : "https://www.reuters.com" }'
 
 aws lambda invoke --function-name testPython3 --payload "$PAYLOAD" $OUTFILE
 
