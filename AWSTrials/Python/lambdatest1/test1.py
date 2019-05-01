@@ -20,17 +20,28 @@ def lambda_handler(event, context):
 	# Some info about the 'event' parameter
 	event_type = str(type(event))
 	event_length = 0
-		
+
+	event_detail = ""	
 	if type(event) == int :
 		event_length = 1
+		event_detail = "int " + str(event)
 	elif type(event) == float :
 		event_length = 1
+		event_detail = "float " + str(event)
 	elif type(event) == str :
 		event_length = len(event)	
+		event_detail = "string " + event
 	elif type(event) == list :
 		event_length = len(event)
+		event_detail = "list"
 	elif type(event) == dict :
 		event_length = len(event)
+		event_detail = "dict: "
+		for k,v in event.items() :
+			if type(v) == int or type(v) == float or type(v) == str :
+				event_detail = event_detail + k + "=" + str(v) + ";"
+			else :
+				event_detail = event_detail + k + "=" + str(type(v)) + ";"
 	else :
 		event_length = -1
 
@@ -57,24 +68,25 @@ def lambda_handler(event, context):
 		'python_version' : python_version,
 		'sys_path' : sys_path,
 		'sys_platform' : sys_platform,
-		'lambda_task_root' : lambda_task_root,
-		'botocore_version' : botocore_version,
-		'boto3_version' : boto3_version,
-		'event_type' : event_type,
-		'event_length' : event_length,
 		'region': region,
 		'access_key': cred.access_key,
 		'secret_key': cred.secret_key,
 		'token': token,
 		'method': cred.method,
-		'buckets': buckets
+		'lambda_task_root' : lambda_task_root,
+		'botocore_version' : botocore_version,
+		'boto3_version' : boto3_version,
+		'event_type' : event_type,
+		'event_length' : event_length,
+		'event_detail' : event_detail,
+		's3_buckets': buckets
 	}
 
 
 if __name__ == "__main__" :
 	#print("Running as main")
 	#ret = lambda_handler([0,1,2,3,5], 0)
-	#ret = lambda_handler({"a":1,"b":2}, 0)
-	ret = lambda_handler(10.34, 0)
+	ret = lambda_handler({"a":1,"b":2, "c" : []}, 0)
+	#ret = lambda_handler(10.34, 0)
 	print(ret)
 

@@ -6,7 +6,7 @@ echo
 
 OUTFILE="invoke.out.txt"
 
-PAYLOAD='10.34'
+PAYLOAD='{ "a": 25, "b": "abc", "d" : "aaxxx" }'
 
 aws lambda invoke --function-name testPython1 --payload "$PAYLOAD" $OUTFILE
 
