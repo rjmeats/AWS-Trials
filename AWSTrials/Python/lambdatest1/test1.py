@@ -11,6 +11,23 @@ def add_env_var(d, name) :
 		val = "-"
 	d[name] = val
 	
+def get_lambda_context_vars(c) :
+	d = {}
+	if type(c) != int :
+		d['remaining_time_ms'] = c.get_remaining_time_in_millis()
+		d['function_name'] = c.function_name
+		d['function_version'] = c.function_version
+		d['invoked_function_arn'] = c.invoked_function_arn
+		d['memory_limit_in_mb'] = c.memory_limit_in_mb
+		d['aws_request_id'] = c.aws_request_id
+		d['log_group_name'] = c.log_group_name
+		d['log_stream_name'] = c.log_stream_name
+		d['cognito_identity_id'] = c.identity.cognito_identity_id
+		d['cognito_identity_pool_id'] = c.identity.cognito_identity_pool_id
+		# Stuff which is only available when invoked via Mobile ?
+		# d['client_installation_id'] = c.client_context.client.installation_id 
+	return d
+
 def get_lambda_env_vars() :
 	d =  {}
 	add_env_var(d, "_HANDLER")
@@ -31,7 +48,9 @@ def get_lambda_env_vars() :
 	add_env_var(d, "PATH")
 	add_env_var(d, "LD_LIBRARY_PATH")
 	add_env_var(d, "PYTHONPATH")
-	add_env_var(d, "AWS_LAMBDA_RUNTIME_API")
+	# Variables defined with the Lambda itself
+	add_env_var(d, "MYVAR1")
+	add_env_var(d, "MYVAR2")
 	
 	return d
 
@@ -73,7 +92,9 @@ def lambda_handler(event, context):
 	else :
 		event_length = -1
 
-	# Info about the AWS session
+	context_vars = get_lambda_context_vars(context)
+
+	# Info about the AWS session from SDK
 	session = boto3.Session()
 	region = session.region_name
 	cred = session.get_credentials()
@@ -102,6 +123,7 @@ def lambda_handler(event, context):
 		'token': token,
 		'method': cred.method,
 		'known_env_vars': env_vars,
+		'context_vars': context_vars,
 		'botocore_version' : botocore_version,
 		'boto3_version' : boto3_version,
 		'event_type' : event_type,
