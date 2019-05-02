@@ -6,6 +6,9 @@ sqs = boto3.resource('sqs')
 def extractQueueNameFromArn(Arn) :
 	return Arn.split(':')[-1]
 
+def extractQueueNameFromUrl(Url) :
+	return Url.split('/')[-1]
+
 def list_queues() :
 	qlist = sqs.queues.all()
 	for q in qlist :

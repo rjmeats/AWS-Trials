@@ -1,5 +1,6 @@
 import time
 import boto3
+import botocore
 import list_queues as lq
 
 sqs = boto3.resource('sqs')
@@ -11,35 +12,32 @@ def queue_exists(qname) :
 			return True
 	return False
 
-def create_queue(qname) :
-	print("Creating new queue called:", qname)
+def delete_queue(qname) :
+	print("Deleting queue called:", qname)
 
 	# Does our queue already exist ? NB this throws an exception if a queue of this name does not exist.
-	if queue_exists(qname) :
-		print(".. queue already exists")
-		q = sqs.get_queue_by_name(QueueName=qname)
+	if not queue_exists(qname) :
+		print(".. queue does not exist")
 	else :
-		attrs = {}
-		q = sqs.create_queue(QueueName=qname, Attributes=attrs)
-		print(".. new queue being created ...", end="", flush=True)
+		q = sqs.get_queue_by_name(QueueName=qname)
+		q.delete()
+		print(".. queue being deleted ...", end="", flush=True)
 	
-		# Wait for the new queue to become listed
+		# Wait for the new queue to stop being listed
 		waiting = True
 		while waiting :
 			time.sleep(2)
-			if queue_exists(qname) :
+			if not queue_exists(qname) :
 				waiting = False
 				print()
 			else :
 				print('.', end="", flush=True)
-
-	print("Queue available:", q)
 
 if __name__ == "__main__" :
 	print(sqs)
 	print()
 	lq.list_queues()
 	print()
-	create_queue('test_std_q6')
+	delete_queue('test_std_q6')
 	print()
 	lq.list_queues()
