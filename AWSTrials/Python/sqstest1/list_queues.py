@@ -9,8 +9,13 @@ def extractQueueNameFromArn(Arn) :
 def extractQueueNameFromUrl(Url) :
 	return Url.split('/')[-1]
 
-def list_queues() :
-	qlist = sqs.queues.all()
+def list_queues(filter="") :
+
+	if filter == "" :
+		qlist = sqs.queues.all()
+	else :
+		qlist = sqs.queues.filter(QueueNamePrefix=filter)
+
 	count = 0
 
 	retry = True
