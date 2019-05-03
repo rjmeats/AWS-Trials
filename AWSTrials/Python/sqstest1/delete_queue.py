@@ -5,18 +5,11 @@ import list_queues as lq
 
 sqs = boto3.resource('sqs')
 
-def queue_exists(qname) :
-	qlist = sqs.queues.filter(QueueNamePrefix=qname)
-	for q in qlist :
-		if lq.extractQueueNameFromUrl(q.url) == qname :
-			return True
-	return False
-
 def delete_queue(qname) :
 	print("Deleting queue called:", qname)
 
 	# Does our queue already exist ? NB this throws an exception if a queue of this name does not exist.
-	if not queue_exists(qname) :
+	if not lq.queue_exists(qname) :
 		print(".. queue does not exist")
 	else :
 		q = sqs.get_queue_by_name(QueueName=qname)
@@ -27,7 +20,7 @@ def delete_queue(qname) :
 		waiting = True
 		while waiting :
 			time.sleep(2)
-			if not queue_exists(qname) :
+			if not lq.queue_exists(qname) :
 				waiting = False
 				print()
 			else :
@@ -38,6 +31,6 @@ if __name__ == "__main__" :
 	print()
 	lq.list_queues()
 	print()
-	delete_queue('test_std_q6')
+	delete_queue('test_std_q1')
 	print()
 	lq.list_queues()

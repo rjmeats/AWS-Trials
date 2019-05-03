@@ -11,16 +11,49 @@ def extractQueueNameFromUrl(Url) :
 
 def list_queues() :
 	qlist = sqs.queues.all()
+	count = 0
+
+	retry = True
+	while retry :
+		count = 0
+		retry = False
+		for q in qlist :
+			count += 1
+			print("Queue:", q.url)
+			try :
+				a = q.attributes
+			except :
+				# If we've just deleted a queue, then it seems that it can still be listed as a queue for little while, but with
+				# attributes not loadable. 
+				print("*** queue attributes not found, checking listings again ***")
+				print()
+				retry = True
+				time.sleep(2)
+				continue
+
+			print("- ARN:", a['QueueArn'])
+			# Looks like queue name has to be extracted from the end of the URL or Arn, no separate attribute/get call
+			qname = extractQueueNameFromArn(a['QueueArn'])
+			print("- name:", qname)
+			if 'FifoQueue' in a and a['FifoQueue'] == "true" :
+				print("- type:", "FIFO")
+			else :
+				print("- type:", "Standard")
+			print("- msgs:", a['ApproximateNumberOfMessages'])
+			print("- msgs not visible:", a['ApproximateNumberOfMessagesNotVisible'])			
+			#print("- ", a)
+
+	if count > 0 :
+		print()
+
+	print(count, "queues" if count != 1 else "queue")
+
+def queue_exists(qname) :
+	qlist = sqs.queues.filter(QueueNamePrefix=qname)
 	for q in qlist :
-		a = q.attributes
-		print("Queue:", q.url)
-		print("- ARN:", a['QueueArn'])
-		# Looks like queue name has to be extracted from the end of the URL or Arn, no separate attribute/get call
-		qname = extractQueueNameFromArn(a['QueueArn'])
-		print("- name:", qname)
-		print("- msgs:", a['ApproximateNumberOfMessages'])
-		print("- not vis msgs:", a['ApproximateNumberOfMessagesNotVisible'])
-		#print("- ", a)
+		if extractQueueNameFromUrl(q.url) == qname :
+			return True
+	return False
 
 if __name__ == "__main__" :
 	print(sqs)
