@@ -43,8 +43,7 @@ def add_messages(qname, count) :
 if __name__ == "__main__" :
 	print(sqs)
 
-	qname = 'test_std_q1'
-	#qname = 'test_fifo_q1.fifo'
+	qname = 'test_lambda_sqs'
 
 	if not lq.queue_exists(qname) :
 		print()
@@ -53,6 +52,6 @@ if __name__ == "__main__" :
 		print()
 		lq.list_queues(qname)
 		print()
-		add_messages(qname, 500)
+		add_messages(qname, 10)
 		print()
 		lq.list_queues(qname)

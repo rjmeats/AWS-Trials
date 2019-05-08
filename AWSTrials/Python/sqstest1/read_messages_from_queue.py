@@ -20,7 +20,10 @@ def read_messages(qname) :
 		print("Read", len(msgs), "messages from queue")
 		for msg in msgs:
 			print(msg.body)
-			msg.delete()
+			if readCount != 100 :
+				msg.delete()
+			else :
+				print("*** Not deleting msg:", msg.body)
 			readCount += 1
 		if len(msgs) == 0 :
 			keepReading = False
@@ -33,7 +36,7 @@ if __name__ == "__main__" :
 	print(sqs)
 
 	qname = 'test_std_q1'
-	qname = 'test_fifo_q1.fifo'
+	#qname = 'test_fifo_q1.fifo'
 
 	if not lq.queue_exists(qname) :
 		print()
