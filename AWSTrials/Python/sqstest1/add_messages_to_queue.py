@@ -1,3 +1,5 @@
+# https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sqs.html
+
 import boto3
 import list_queues as lq
 
@@ -7,6 +9,9 @@ def add_messages(qname, count) :
 
 	q = sqs.get_queue_by_name(QueueName=qname)
 
+	print()
+	print("Adding", count, "message" if count == 1 else "messages", " to queue", qname, "...")
+	
 	addedCount = 0
 	isFifoQueue = qname.endswith(".fifo")
 	for i in range(0, count) :
@@ -15,10 +20,13 @@ def add_messages(qname, count) :
 		try :
 			if isFifoQueue :
 				# NB Need to improve the dedup ID to allow this script to be re-run over a short period of time, otherwise repeated msgs are dropped.
+				# Messages received with the same ID within 5 minutes are treated as duplicates.
 				response = q.send_message(MessageBody=msgBody, MessageDeduplicationId="X"+str(i), MessageGroupId="fifogroup1")
 			else :
 				response = q.send_message(MessageBody=msgBody)
 			addedCount += 1
+			if addedCount % 20 == 0 :
+				print("...", addedCount, "...")
 			#print(response)
 		except Exception as e:
 			print("****")
@@ -30,24 +38,7 @@ def add_messages(qname, count) :
 	print()
 	print("Added", addedCount, "message" if addedCount == 1 else "messages", " to queue", qname)
 	print()
-	#return 
-	# Read them here for trial purposes
-	keepReading = True
-	readCount = 0
-	while keepReading :
-		msgs = q.receive_messages(AttributeNames=['all'], MaxNumberOfMessages=10)
-		print()
-		print("Read", len(msgs), "messages from queue")
-		for msg in msgs:
-			print(msg.body)
-			msg.delete()
-			readCount += 1
-		if len(msgs) == 0 :
-			keepReading = False
-
-	print()
-	print("Read", readCount, "messages")
-	return
+	return 
 
 if __name__ == "__main__" :
 	print(sqs)
