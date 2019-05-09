@@ -8,10 +8,12 @@ import list_topics as lt
 sns_client = boto3.client('sns')
 
 def delete_topic(topicname) :
-	arn = 'arn:aws:sns:eu-west-2:686915945833:' + topicname
-	print("Deleting topic called:", topicname, "using ARN:", arn)
-
-	sns_client.delete_topic(TopicArn=arn)
+	arn = lt.convert_topic_name_to_arn(topicname)
+	if arn != "" :
+		print("Deleting topic called:", topicname, "using ARN:", arn)
+		sns_client.delete_topic(TopicArn=arn)
+	else :
+		print("Topic", topicname, "not found")
 
 if __name__ == "__main__" :
 	print(sns_client)

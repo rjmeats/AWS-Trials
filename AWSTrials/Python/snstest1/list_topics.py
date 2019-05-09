@@ -5,11 +5,16 @@ import boto3
 
 sns = boto3.resource('sns')
 
-#def extractQueueNameFromArn(Arn) :
-#	return Arn.split(':')[-1]
+def convert_topic_name_to_arn(topicname) :
+	tlist = sns.topics.all()
+	arn = ""
+	for t in tlist :
+		arn = t.attributes['TopicArn']
+		tname = arn.split(':')[-1]
+		if tname == topicname :
+			return arn
 
-#def extractQueueNameFromUrl(Url) :
-#	return Url.split('/')[-1]
+	return ""
 
 def list_topics() :
 
@@ -40,3 +45,5 @@ if __name__ == "__main__" :
 	print()
 	list_topics()
 	print()
+	foundarn = convert_topic_name_to_arn("test_topic2")
+	print("Found arn", foundarn)
