@@ -24,9 +24,16 @@ def list_topics() :
 
 	for t in tlist :
 		count += 1
+		print()
 		print("Topic:", t.arn)
 		a = t.attributes
 		print("  ", a)
+
+		subscriptions_list = sns.meta.client.list_subscriptions_by_topic(TopicArn=t.arn)
+		#print(subscriptions_list)
+		print("  ", len(subscriptions_list['Subscriptions']), " subscription(s):")
+		for s in subscriptions_list['Subscriptions'] :
+			print("    ", s['Protocol'], ":", s['Endpoint'], ":", s['SubscriptionArn'])
 
 	if count > 0 :
 		print()

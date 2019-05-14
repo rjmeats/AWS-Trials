@@ -7,7 +7,7 @@ import list_topics as lt
 
 sns_client = boto3.client('sns')
 
-def subscribe_to_topic_for_email(topicname, address) :
+def subscribe_to_topic_for_sms(topicname, phone_number) :
 	arn = lt.convert_topic_name_to_arn(topicname)
 
 	# Check for existing subscription for this combo ?
@@ -15,12 +15,15 @@ def subscribe_to_topic_for_email(topicname, address) :
 	if arn == "" :
 		print("Topic", topicname, "not found")
 	else :
-		print("Subscribing", address, "to topic:", topicname, "arn =", arn)
+		print("Subscribing", phone_number, "to topic:", topicname, "arn =", arn)
+
+		# NB sms only supported in certain regions. https://docs.aws.amazon.com/sns/latest/dg/sms_supported-countries.html
+		# Only Ireland (eu-west-1) for Europe! Throws an 'Invalid Parameter' error for London region.
 
 		response = sns_client.subscribe(
 			TopicArn = arn,
-			Protocol = 'email',
-			Endpoint = address,		# No restriction on what this is, could send to anyone!
+			Protocol = 'sms',
+			Endpoint = phone_number,		# No restriction on what this is, could send to anyone!
 			ReturnSubscriptionArn = True
 		)
 
@@ -33,10 +36,10 @@ def subscribe_to_topic_for_email(topicname, address) :
 if __name__ == "__main__" :
 	print(len(sys.argv))
 	if len(sys.argv) < 2 :
-		print("*** No email address argument specified")
+		print("*** No phone number argument specified")
 	else :
-		address = sys.argv[1]
+		phone_number = sys.argv[1]	# Should be E.164 formatted, e.g. for UK  "+44" + number without initial 0.  
 		print(sns_client)
 		print()
-		subscribe_to_topic_for_email('test_topic2', address)
+		subscribe_to_topic_for_sms('test_topic2', phone_number)
 		print()
