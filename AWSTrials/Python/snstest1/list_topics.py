@@ -50,6 +50,10 @@ def list_topics() :
 if __name__ == "__main__" :
 	print(sns)
 	print()
+	test_session = boto3.session.Session()
+	my_region = test_session.region_name
+	print("Region is", my_region)
+	print()
 	list_topics()
 	print()
 	foundarn = convert_topic_name_to_arn("test_topic2")

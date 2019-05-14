@@ -1,5 +1,6 @@
 # https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sns.html
 
+import sys
 import time
 import boto3
 import botocore
@@ -16,7 +17,11 @@ if __name__ == "__main__" :
 	print()
 	lt.list_topics()
 	print()
-	subscription_arn = 'arn:aws:sns:eu-west-2:686915945833:test_topic2:3fe5dcc6-a1da-4f05-8b8e-e1fe57622aa9'
-	unsubscribe(subscription_arn)
-	print()
-	lt.list_topics()
+	print(len(sys.argv))
+	if len(sys.argv) < 2 :
+		print("*** No subscription ARN argument specified")
+	else :
+		subscription_arn = sys.argv[1]
+		unsubscribe(subscription_arn)
+		print()
+		lt.list_topics()
