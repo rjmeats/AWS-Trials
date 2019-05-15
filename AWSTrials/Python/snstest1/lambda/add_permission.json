@@ -1,0 +1,7 @@
+{
+    "FunctionName": "testPythonSNS",
+    "StatementId" : "SNSInvokeLambdaPermission",
+    "Action": "lambda:InvokeFunction",
+    "Principal": "sns.amazonaws.com",
+    "SourceArn": "arn:aws:sns:eu-west-1:686915945833:test_topic2"
+}
