@@ -32,7 +32,7 @@ def put_items(tablename) :
         print("Adding record", keyval, "...")
         itemsDict = { 
                     'kcol' : keyval,
-                    'nkeyint' : { "N" : nonkeyintval },
+                    'nkeyint' : nonkeyintval,
                     'nkeystring' : nonkeystringval
         } 
 
