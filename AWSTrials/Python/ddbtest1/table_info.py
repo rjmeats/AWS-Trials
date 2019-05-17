@@ -41,6 +41,12 @@ def show_info(tablename) :
 	print('Item count:', t.item_count, ", bytes", t.table_size_bytes)
 	print('Attribute definitions:', t.attribute_definitions)
 	print('Key schema:', t.key_schema)
+	print('Local secondary indexes:', t.local_secondary_indexes)
+	print('Global secondary indexes:', t.global_secondary_indexes)
+	print('Billing mode:', t.billing_mode_summary['BillingMode'])
+	print('Provisioned throughput:', t.provisioned_throughput)
+	print('Restore summary:', t.restore_summary)
+	print('Latest stream Arn:', t.latest_stream_arn)
 
 	print()
 	#desc = ddb_client.describe_table(TableName=tablename)
