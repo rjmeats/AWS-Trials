@@ -20,6 +20,18 @@ def table_exists(tablename) :
 	
 	return foundTable
 
+def table_exists_in_region(region_resource, tablename) :
+
+	tlist = region_resource.tables.all()
+	foundTable = None
+
+	for t in tlist :
+		if t.table_name == tablename :
+			foundTable = t
+			break
+	
+	return foundTable
+
 
 def show_info(tablename) :
 	print("Info for table:", tablename)
