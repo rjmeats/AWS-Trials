@@ -24,3 +24,4 @@ echo "- just show the first 50 lines of output"
 echo
 
 aws ec2 describe-spot-price-history | head -50
+
