@@ -30,12 +30,17 @@ echo
 git clone "https://git-codecommit.eu-west-2.amazonaws.com/v1/repos/test-repo1"
 
 ls -ltr
+cd test-repo1
+git remote -v
+cd -
 
 echo
-echo "Delete repository:"
+echo "Delete CodeCommit repository:"
 echo
 
 aws codecommit delete-repository --repository-name test-repo1
+
+rm -r test-repo1
 
 echo
 echo "List repositories:"
