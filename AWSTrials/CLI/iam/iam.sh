@@ -22,3 +22,10 @@ echo
 
 aws iam list-groups
 
+
+echo
+echo "List policies:"
+echo
+
+aws iam list-policies
+
