@@ -22,3 +22,10 @@ echo
 EPOCH=$(date +%s)
 aws xray get-trace-summaries --start-time $(($EPOCH-120)) --end-time $(($EPOCH-60))
 
+
+echo
+echo "Get sampling statistic summaries:"
+echo
+
+aws xray get-sampling-statistic-summaries
+
