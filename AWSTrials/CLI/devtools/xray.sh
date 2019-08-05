@@ -15,3 +15,10 @@ echo
 
 aws xray get-groups
 
+echo
+echo "Get trace summaries:"
+echo
+
+EPOCH=$(date +%s)
+aws xray get-trace-summaries --start-time $(($EPOCH-120)) --end-time $(($EPOCH-60))
+
