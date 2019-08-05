@@ -9,3 +9,9 @@ echo
 
 aws xray get-sampling-rules
 
+echo
+echo "List groups:"
+echo
+
+aws xray get-groups
+
