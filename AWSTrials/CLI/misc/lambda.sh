@@ -14,3 +14,15 @@ echo "List functions:"
 echo
 
 aws lambda list-functions
+
+echo
+echo "List aliases:"
+echo
+
+aws lambda list-aliases --function-name HelloWorldLambda
+
+echo
+echo "List event source mappings:"
+echo
+
+aws lambda list-event-source-mappings
