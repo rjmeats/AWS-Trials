@@ -37,12 +37,18 @@ echo
 
 aws s3api get-bucket-location --bucket "${MY_BUCKET}"
 
-
 echo
 echo "Display ${MY_BUCKET} CORS info:"
 echo
 
 aws s3api get-bucket-cors --bucket "${MY_BUCKET}" --region eu-west-2
+
+
+echo
+echo "Display ${MY_BUCKET} transfer acceleration info:"
+echo
+
+aws s3api get-bucket-accelerate-configuration --bucket "${MY_BUCKET}" --region eu-west-2
 
 
 echo
