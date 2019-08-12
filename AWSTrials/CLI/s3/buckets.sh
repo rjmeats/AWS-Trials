@@ -32,7 +32,14 @@ echo
 aws s3api list-buckets
 
 echo
-echo "Display ${MY_BUCKET} info:"
+echo "Display ${MY_BUCKET} locatin info:"
+echo
+
+aws s3api get-bucket-location --bucket "${MY_BUCKET}"
+
+
+echo
+echo "Display ${MY_BUCKET} CORS info:"
 echo
 
 aws s3api get-bucket-cors --bucket "${MY_BUCKET}" --region eu-west-2
