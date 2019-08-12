@@ -32,6 +32,13 @@ echo
 aws s3api list-buckets
 
 echo
+echo "Display ${MY_BUCKET} info:"
+echo
+
+aws s3api get-bucket-cors --bucket "${MY_BUCKET}" --region eu-west-2
+
+
+echo
 echo "Try to create ${MY_BUCKET} bucket again:"
 echo
 echo "- expect an 'already exists and you own it' error"
