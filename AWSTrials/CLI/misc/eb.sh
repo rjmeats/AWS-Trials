@@ -27,3 +27,10 @@ echo
 
 aws elasticbeanstalk describe-environments
 
+
+echo
+echo "Describe account attributes:"
+echo
+
+aws elasticbeanstalk describe-account-attributes
+
