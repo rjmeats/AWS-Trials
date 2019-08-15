@@ -9,3 +9,15 @@ echo
 
 aws cloudformation list-stacks
 
+echo
+echo "List exports:"
+echo
+
+aws cloudformation list-exports
+
+echo
+echo "List stack sets:"
+echo
+
+aws cloudformation list-stack-sets
+
