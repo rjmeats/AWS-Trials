@@ -26,3 +26,9 @@ echo "List event source mappings:"
 echo
 
 aws lambda list-event-source-mappings
+
+echo
+echo "List layers:"
+echo
+
+aws lambda list-layers
