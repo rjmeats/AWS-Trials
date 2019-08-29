@@ -8,3 +8,9 @@ echo "Describe instances:"
 echo
 
 aws rds describe-db-instances
+
+echo
+echo "Describe snapshots:"
+echo
+
+aws rds describe-db-snapshots
