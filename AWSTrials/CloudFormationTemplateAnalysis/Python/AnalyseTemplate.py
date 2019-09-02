@@ -392,7 +392,7 @@ def analyseConfiguration(data) :
                 if unknownType:
                     if parameter['Type'] not in unknownParameterTypes :
                         unknownParameterTypes.append(parameter['Type'])
-                print("- {0:20.20s} : {1:40.40s}  {2:.100s}".format(parameter['Name'], parameter['Type'], parameter['Description']))
+                print("- {0:40.40s} : {1:30.30s}  {2:.100s}".format(parameter['Name'], parameter['Type'], parameter['Description']))
 
         if k == 'Metadata' :
             for k2, v2 in v.items() :
@@ -416,7 +416,7 @@ def analyseConfiguration(data) :
                 #allItems[k2] = 'Condition'
                 con = extractConditionsInfo(k2, v2)
                 conditions[k2] = con
-                print("- {0:30.30s} : {1:s}".format(con['Name'], con['ConditionNodeString']))
+                print("- {0:40.40s} : {1:s}".format(con['Name'], con['ConditionNodeString']))
 
         if k == 'Outputs' :
             for k2, v2 in v.items() :
