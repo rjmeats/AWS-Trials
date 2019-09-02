@@ -271,7 +271,10 @@ def extractResourcesInfo(name, dIn) :
 
             'AWS::EMR::Cluster', 'AWS::EMR::Step',
 
-            'AWS::StepFunctions::StateMachine'
+            'AWS::StepFunctions::StateMachine',
+
+            'AWS::ServiceCatalog::Portfolio', 'AWS::ServiceCatalog::CloudFormationProduct', 'AWS::ServiceCatalog::PortfolioProductAssociation',
+            'AWS::ServiceCatalog::LaunchRoleConstraint'
                 ]
 
 
@@ -389,7 +392,7 @@ def analyseConfiguration(data) :
                 if unknownType:
                     if parameter['Type'] not in unknownParameterTypes :
                         unknownParameterTypes.append(parameter['Type'])
-                print("- {0:20.20s} : {1:50.50s}  {2:.100s}".format(parameter['Name'], parameter['Type'], parameter['Description']))
+                print("- {0:20.20s} : {1:40.40s}  {2:.100s}".format(parameter['Name'], parameter['Type'], parameter['Description']))
 
         if k == 'Metadata' :
             for k2, v2 in v.items() :
@@ -421,7 +424,7 @@ def analyseConfiguration(data) :
                 #allItems[k2] = 'Output'
                 output = extractOutputsInfo(k2, v2)
                 outputs[k2] = output
-                print("- {0:30.30s} : {1:40.40s} {2:s}".format(output['Name'], output['Description'], output['ValueNodeString']))
+                print("- {0:40.40s} : {1:40.40s} {2:s}".format(output['Name'], output['Description'], output['ValueNodeString']))
 
         if k == 'Resources' :
             for k2, v2 in v.items() :
@@ -432,7 +435,7 @@ def analyseConfiguration(data) :
                 if unknownType:
                     if resource['Type'] not in unknownResourceTypes :
                         unknownResourceTypes.append(resource['Type'])
-                print("- {0:30.30s} : {1:50.50s} {2:60.60s}".format(resource['Name'], resource['Type'], resource['PropertiesNodeString']))
+                print("- {0:50.50s} : {1:50.50s} {2:60.60s}".format(resource['Name'], resource['Type'], resource['PropertiesNodeString']))
                 resourceTypeCounts[resource['Type']] += 1
                 # And show references to other resources, parameters, etc
                 refs = getRefs(k2, k2, v2)
@@ -593,7 +596,7 @@ def main(filenameArg, outDir="", showRoles=True) :
             else :
                 print("*** ignoring non-file ", filename)
     else :
-        print("***",  filename, "is not a file or directory", file=sys.stderr)
+        print("***",  filenameArg, "is not a file or directory", file=sys.stderr)
         return
 
     bulkRun = len(filenames) > 1
