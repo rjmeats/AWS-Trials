@@ -1,4 +1,4 @@
-. ./aws_env_setup.sh
+. ../aws_env_setup.sh
 
 echo
 echo $SHELL at $(date)

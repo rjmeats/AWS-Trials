@@ -1,4 +1,4 @@
-. ./aws_env_setup.sh
+. ../aws_env_setup.sh
 
 echo
 echo $SHELL at $(date)
@@ -52,5 +52,12 @@ echo "NAT Gateways:"
 echo
 
 aws ec2 describe-nat-gateways
+
+
+echo
+echo "VPN Gateways:"
+echo
+
+aws ec2 describe-vpn-gateways
 
 
