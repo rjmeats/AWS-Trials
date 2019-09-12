@@ -60,4 +60,11 @@ echo
 
 aws ec2 describe-vpn-gateways
 
+echo
+echo "Customer Gateways:"
+echo
+
+aws ec2 describe-customer-gateways
+
+
 
