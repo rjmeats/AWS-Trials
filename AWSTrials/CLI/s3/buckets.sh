@@ -61,6 +61,13 @@ aws s3api create-bucket --bucket "${MY_BUCKET}" --region eu-west-2 --create-buck
 
 
 echo
+echo "Show region of ${MY_BUCKET} bucket:"
+echo
+
+aws s3api get-bucket-location --bucket "${MY_BUCKET}" 
+
+
+echo
 echo "Try to create 'rjm' bucket again:"
 echo
 echo "- expect an 'can't create, already exists' error, not owned by me"
