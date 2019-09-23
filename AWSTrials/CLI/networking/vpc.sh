@@ -66,5 +66,13 @@ echo
 
 aws ec2 describe-customer-gateways
 
+echo
+echo "Peering connections:"
+echo
+
+aws ec2 describe-vpc-peering-connections
+
+
+
 
 
