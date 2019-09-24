@@ -67,6 +67,12 @@ echo
 aws ec2 describe-customer-gateways
 
 echo
+echo "Transit Gateways:"
+echo
+
+aws ec2 describe-transit-gateways
+
+echo
 echo "Peering connections:"
 echo
 
