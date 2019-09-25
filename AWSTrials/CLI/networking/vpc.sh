@@ -78,6 +78,12 @@ echo
 
 aws ec2 describe-vpc-peering-connections
 
+echo
+echo "VPC endpoints:"
+echo
+
+aws ec2 describe-vpc-endpoints
+
 
 
 
