@@ -9,3 +9,10 @@ echo
 
 aws cloudwatch list-metrics
 
+
+echo
+echo "List dashboards:"
+echo
+
+aws cloudwatch list-dashboards
+
