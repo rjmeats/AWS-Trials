@@ -25,3 +25,9 @@ echo
 
 aws ec2 describe-spot-price-history | head -50
 
+echo
+echo "Describe account:"
+echo
+
+aws ec2 describe-account-attributes
+
