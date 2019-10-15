@@ -9,3 +9,9 @@ echo
 
 aws sagemaker list-models
 
+echo
+echo "List notebook instances:"
+echo
+
+aws sagemaker list-notebook-instances
+
