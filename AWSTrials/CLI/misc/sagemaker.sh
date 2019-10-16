@@ -15,3 +15,10 @@ echo
 
 aws sagemaker list-notebook-instances
 
+
+echo
+echo "List algorithms:"
+echo
+
+aws sagemaker list-algorithms
+
