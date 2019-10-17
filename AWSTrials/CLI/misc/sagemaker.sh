@@ -22,3 +22,10 @@ echo
 
 aws sagemaker list-algorithms
 
+
+echo
+echo "List training jobs:"
+echo
+
+aws sagemaker list-training-jobs
+
