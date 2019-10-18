@@ -29,3 +29,10 @@ echo
 
 aws sagemaker list-training-jobs
 
+
+echo
+echo "List endpoints:"
+echo
+
+aws sagemaker list-endpoints
+
