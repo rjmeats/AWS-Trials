@@ -36,3 +36,9 @@ echo
 
 aws sagemaker list-endpoints
 
+echo
+echo "List labelling jobs:"
+echo
+
+aws sagemaker list-labeling-jobs
+
