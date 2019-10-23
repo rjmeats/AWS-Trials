@@ -43,6 +43,12 @@ echo
 aws sagemaker list-labeling-jobs
 
 echo
+echo "List transform jobs:"
+echo
+
+aws sagemaker list-transform-jobs
+
+echo
 echo "List code repositories:"
 echo
 
