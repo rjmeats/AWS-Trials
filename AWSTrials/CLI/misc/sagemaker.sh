@@ -22,19 +22,23 @@ echo
 
 aws sagemaker list-algorithms
 
+echo
+echo "List endpoints:"
+echo
+
+aws sagemaker list-endpoints
+
+echo
+echo "List code repositories:"
+echo
+
+aws sagemaker list-code-repositories
 
 echo
 echo "List training jobs:"
 echo
 
 aws sagemaker list-training-jobs
-
-
-echo
-echo "List endpoints:"
-echo
-
-aws sagemaker list-endpoints
 
 echo
 echo "List labelling jobs:"
@@ -49,8 +53,8 @@ echo
 aws sagemaker list-transform-jobs
 
 echo
-echo "List code repositories:"
+echo "List compliation jobs:"
 echo
 
-aws sagemaker list-code-repositories
+aws sagemaker list-compilation-jobs
 
