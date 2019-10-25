@@ -41,6 +41,12 @@ echo
 aws sagemaker list-training-jobs
 
 echo
+echo "List tuning jobs"
+echo
+
+aws sagemaker list-hyper-parameter-tuning-jobs
+
+echo
 echo "List labelling jobs:"
 echo
 
