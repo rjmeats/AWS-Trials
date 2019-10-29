@@ -29,6 +29,12 @@ echo
 aws sagemaker list-endpoints
 
 echo
+echo "List endpoint configs:"
+echo
+
+aws sagemaker list-endpoint-configs
+
+echo
 echo "List code repositories:"
 echo
 
