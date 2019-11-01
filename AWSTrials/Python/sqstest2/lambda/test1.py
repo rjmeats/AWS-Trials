@@ -1,3 +1,9 @@
+#
+# NB Note that behind the scenes, AWS does long poll receives on the queue in order to know when to trigger this
+# lambda function - there is no 'event' for the Lambda to hook on to. The baseline rate is every 20 seconds, five
+# threads, so 15 times per minute. This activity is charged for like any other SQS read activity!
+#
+
 import sys
 import os
 import json
