@@ -52,24 +52,24 @@ fi
 
 NBSTATUS=$(aws sagemaker describe-notebook-instance --notebook-instance-name $NOTEBOOK | jq -r '.NotebookInstanceStatus')
 
-if [[ $NBSTATUS != "Stopped" ]]
+if [[ $NBSTATUS != "InService" ]]
 then
 	echo
-	echo "Notebook $NOTEBOOK is not in a stopped state initially"
+	echo "Notebook $NOTEBOOK is not running"
 	echo
 	exit 0
 fi
 
 echo
-echo "Starting notebook :"
+echo "Stopping notebook :"
 echo
 
-aws sagemaker start-notebook-instance --notebook-instance-name $NOTEBOOK
+aws sagemaker stop-notebook-instance --notebook-instance-name $NOTEBOOK
 
 if [[ $? -ne 0 ]]
 then
 	echo
-	echo "Error starting notebook $NOTEBOOK"
+	echo "Error stopping notebook $NOTEBOOK"
 	echo
 	exit 1
 fi
