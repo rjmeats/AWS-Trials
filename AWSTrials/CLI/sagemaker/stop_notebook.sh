@@ -80,6 +80,7 @@ sleep 5
 echo "Checking status ..."
 echo
 aws sagemaker describe-notebook-instance --notebook-instance-name $NOTEBOOK
+echo
 
 while [[ : ]]
 do
