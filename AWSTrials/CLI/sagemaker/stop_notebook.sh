@@ -32,6 +32,7 @@ then
 fi
 
 . ../aws_env_setup.sh
+. ./nb_functions.sh
 
 echo
 echo $SHELL at $(date)
@@ -50,7 +51,7 @@ then
 	exit 1
 fi
 
-NBSTATUS=$(aws sagemaker describe-notebook-instance --notebook-instance-name $NOTEBOOK | jq -r '.NotebookInstanceStatus')
+NBSTATUS=$(getNBStatus $NOTEBOOK)
 
 if [[ $NBSTATUS != "InService" ]]
 then
@@ -79,4 +80,17 @@ sleep 5
 echo "Checking status ..."
 echo
 aws sagemaker describe-notebook-instance --notebook-instance-name $NOTEBOOK
+
+while [[ : ]]
+do
+	sleep 3
+	NBSTATUS=$(getNBStatus $NOTEBOOK)
+	T=`date`
+	echo "$T : Status is $NBSTATUS ..."
+
+	if [[ $NBSTATUS == "Stopped" ]]
+	then
+		exit 0
+	fi
+done
 
