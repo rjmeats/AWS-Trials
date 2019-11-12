@@ -10,8 +10,8 @@ then
 	if [[ ! -z "$2" ]]
 	then
 		NOTEBOOK="$2"
-		echo
-		echo "Using notebook $NOTEBOOK"
+		# echo
+		# echo "Using notebook $NOTEBOOK"
 	else
 		BAD_PARAMETERS=Y
 		echo
@@ -32,12 +32,10 @@ then
 fi
 
 . ../aws_env_setup.sh
+. ./nb_functions.sh
 
 echo
-echo $SHELL at $(date)
-
-echo
-echo "Notebook instance details:"
+echo "Details of Notebook instance $NOTEBOOK :"
 echo
 
 aws sagemaker describe-notebook-instance --notebook-instance-name $NOTEBOOK
@@ -50,15 +48,13 @@ then
 	exit 1
 fi
 
+echo
 while [[ : ]]
 do
-
-	NBSTATUS=$(aws sagemaker describe-notebook-instance --notebook-instance-name $NOTEBOOK | jq -r '.NotebookInstanceStatus')
-
-	date
-	echo "Status is $NBSTATUS"
-	echo
-
-	sleep 5
+	sleep 3
+	NBSTATUS=$(getNBStatus $NOTEBOOK)
+	T=`date`
+	echo "$T : Status is $NBSTATUS ..."
 done
+
 
