@@ -32,6 +32,7 @@ then
 fi
 
 . ../aws_env_setup.sh
+. ./nb_functions.sh
 
 echo
 echo $SHELL at $(date)
@@ -50,7 +51,7 @@ then
 	exit 1
 fi
 
-NBSTATUS=$(aws sagemaker describe-notebook-instance --notebook-instance-name $NOTEBOOK | jq -r '.NotebookInstanceStatus')
+NBSTATUS=$(getNBStatus $NOTEBOOK)
 
 if [[ $NBSTATUS != "InService" ]]
 then
