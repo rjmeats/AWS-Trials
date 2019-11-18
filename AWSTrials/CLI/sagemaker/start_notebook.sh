@@ -91,6 +91,19 @@ do
 
 	if [[ $NBSTATUS == "InService" ]]
 	then
+		echo
+		echo "Getting presigned URL for notebook $NOTEBOOK:"
+		echo
+
+		aws sagemaker create-presigned-notebook-instance-url --notebook-instance-name $NOTEBOOK
+
+		if [[ $? -ne 0 ]]
+		then
+			echo
+			echo "Error getting URL notebook $NOTEBOOK"
+			echo
+		fi
+
 		exit 0
 	fi
 done
