@@ -90,17 +90,67 @@ def displayImageWithMatPlotLib(imgFile, labelsResponse) :
         sub_ax.set_xticklabels([])
     plt.show()
 
-def displayImageWithPillow(imgFile) :
+def displayImageWithPillow(imgFile, labelsResponse) :
 
 # https://www.geeksforgeeks.org/reading-images-in-python/
 
-    from PIL import Image
+    from PIL import Image, ImageDraw, ImageColor
 
     img = Image.open(imgFile) 
-    img.show() 
-    print(img.format)     
-    print(img.mode) 
 
+    horizontalSize, verticalSize = img.size   # (x,y) NB Opposite way round from matplotlib
+
+    labels = labelsResponse['Labels']
+    rects = []
+    items = []
+    for label in labels:
+        instances = label['Instances']
+        if(len(instances) == 0) :
+            print("{0} : {1:.1f}%".format(label['Name'], label['Confidence']))
+        else :
+            print("{0} : {1:.1f}% : {2} instance(s)".format(label['Name'], label['Confidence'], len(instances)))
+        if label['Name'] == "Person" :
+            boxc = 'red'
+        elif len(instances):
+            boxc = 'green'
+
+        for instance in instances :
+            box = instance['BoundingBox']
+            boxheight = int(box['Height'] * verticalSize)
+            boxwidth = int(box['Width'] * horizontalSize)
+            topoffset = int(box['Top'] *verticalSize)
+            leftoffset = int(box['Left'] * horizontalSize)
+
+            rect = leftoffset,topoffset, leftoffset+boxwidth, topoffset+boxheight
+            rects.append((rect, boxc))
+
+            crop = img.crop(rect)
+            items.append(crop)
+
+            # if len(items) < 20 :
+            #     items.append((rectImg, label['Name']))
+            # else :
+            #     print("Too many items to display - ignoring", label['Name'])
+
+
+    # print(type(img))
+    # print(img.format)     
+    # print(img.mode) 
+    # print(img.size) 
+
+    draw = ImageDraw.Draw(img, mode='RGBA')
+    for rect in rects :
+        alpha = 80
+        colour = (*ImageColor.getrgb(rect[1]),alpha)
+        draw.rectangle(rect[0], fill=None, outline=colour, width=5)
+
+    img.show() 
+
+    # Displays each item on its own image page. Not clear how size of displayed image is determined.
+    # Pillow just invokes the Windows application assigned to .png files, so doesn't control size.
+    # Needs more work!
+    for item in items[0:3]:
+        item.show()
 
 def displayImageWithOpenCV(imgFile) :
     import cv2
@@ -125,8 +175,8 @@ def main(argv) :
 
     #imgFile = 'AI Services/burgos.jpg'
 
-    displayImageWithMatPlotLib(imgFile, labelsResponse)
-    #displayImageWithPillow(imgFile)
+    #displayImageWithMatPlotLib(imgFile, labelsResponse)
+    displayImageWithPillow(imgFile, labelsResponse)
     #displayImageWithOpenCV(imgFile)
     #print("Labels detected :", str(label_count))
 
