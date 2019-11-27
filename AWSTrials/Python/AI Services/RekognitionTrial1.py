@@ -93,6 +93,7 @@ def displayImageWithMatPlotLib(imgFile, labelsResponse) :
 def displayImageWithPillow(imgFile, labelsResponse) :
 
 # https://www.geeksforgeeks.org/reading-images-in-python/
+# https://pillow.readthedocs.io/en/stable/
 
     from PIL import Image, ImageDraw, ImageColor
 
@@ -105,10 +106,11 @@ def displayImageWithPillow(imgFile, labelsResponse) :
     items = []
     for label in labels:
         instances = label['Instances']
+        conf_s = "{0:.1f}%".format(label['Confidence'])
         if(len(instances) == 0) :
-            print("{0} : {1:.1f}%".format(label['Name'], label['Confidence']))
+            print("{0} : {1}".format(label['Name'], conf_s))
         else :
-            print("{0} : {1:.1f}% : {2} instance(s)".format(label['Name'], label['Confidence'], len(instances)))
+            print("{0} : {1} : {2} instance(s)".format(label['Name'], conf_s, len(instances)))
         if label['Name'] == "Person" :
             boxc = 'red'
         elif len(instances):
@@ -125,6 +127,9 @@ def displayImageWithPillow(imgFile, labelsResponse) :
             rects.append((rect, boxc))
 
             crop = img.crop(rect)
+            draw = ImageDraw.Draw(crop, mode='RGBA')
+            draw.text((0,0), label['Name'] + "(" + conf_s + ")")
+
             items.append(crop)
 
             # if len(items) < 20 :
@@ -149,7 +154,7 @@ def displayImageWithPillow(imgFile, labelsResponse) :
     # Displays each item on its own image page. Not clear how size of displayed image is determined.
     # Pillow just invokes the Windows application assigned to .png files, so doesn't control size.
     # Needs more work!
-    for item in items[0:3]:
+    for item in items[0:6]:
         item.show()
 
 def displayImageWithOpenCV(imgFile) :
