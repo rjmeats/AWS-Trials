@@ -56,9 +56,9 @@ def displayImageWithMatPlotLib(imgFile, labelsResponse) :
             boxwidth = int(box['Width'] * horizontalSize)
             topoffset = int(box['Top'] *verticalSize)
             leftoffset = int(box['Left'] * horizontalSize)
-            # Plot a box on the image at the appropriate point
+            # Plot a box on the image at the appropriate point. NB line of rectangle is outside selected area (unlike cv2)
             #ax.add_patch(plt.Rectangle((leftoffset, topoffset), boxwidth, boxheight, edgecolor=boxc, alpha=0.5, lw=1,facecolor='none'))
-            patches.append(plt.Rectangle((leftoffset, topoffset), boxwidth, boxheight, edgecolor=boxc, alpha=0.5, lw=1,facecolor='none'))
+            patches.append(plt.Rectangle((leftoffset, topoffset), boxwidth, boxheight, edgecolor=boxc, alpha=0.5, lw=4,facecolor='none'))
 
             # Pull out the part of the image that contains the item into a separate small image.
             rectImg = img[topoffset:topoffset+boxheight,leftoffset:leftoffset+boxwidth,:]
@@ -157,10 +157,76 @@ def displayImageWithPillow(imgFile, labelsResponse) :
     for item in items[0:6]:
         item.show()
 
-def displayImageWithOpenCV(imgFile) :
-    import cv2
+# https://docs.opencv.org/master/index.html
+# https://docs.opencv.org/master/dc/da5/tutorial_py_drawing_functions.html
+#  - NB old version https://docs.opencv.org/2.4/modules/core/doc/drawing_functions.html#rectangle
+
+# 
+
+def displayImageWithOpenCV(imgFile, labelsResponse) :
+    # NB pylint is showing warnings about not finding cv2 members - https://github.com/PyCQA/pylint/issues/2426
+    # if do just 'import cv2'
+    from cv2 import cv2
     img = cv2.imread(imgFile)
+
+    # Potential aLpha handling
+    # https://gist.github.com/IAmSuyogJadhav/305bfd9a0605a4c096383408bee7fd5c
+    bgrcolorRed = (0, 0, 255)
+    bgrcolorGreen = (0, 255, 0)
+
+    verticalSize, horizontalSize, dummy = img.shape
+
+    labels = labelsResponse['Labels']
+    rects = []
+    items = []
+    for label in labels:
+        instances = label['Instances']
+        conf_s = "{0:.1f}%".format(label['Confidence'])
+        if(len(instances) == 0) :
+            print("{0} : {1}".format(label['Name'], conf_s))
+        else :
+            print("{0} : {1} : {2} instance(s)".format(label['Name'], conf_s, len(instances)))
+        if label['Name'] == "Person" :
+            boxc = bgrcolorRed
+        elif len(instances):
+            boxc = bgrcolorGreen
+
+        for instance in instances :
+            box = instance['BoundingBox']
+            boxheight = int(box['Height'] * verticalSize)
+            boxwidth = int(box['Width'] * horizontalSize)
+            topoffset = int(box['Top'] *verticalSize)
+            leftoffset = int(box['Left'] * horizontalSize)
+
+            rect = leftoffset,topoffset, boxwidth, boxheight
+            rects.append((rect, boxc))
+
+            rectImg = img[topoffset:topoffset+boxheight,leftoffset:leftoffset+boxwidth,:].copy()
+            #draw = ImageDraw.Draw(crop, mode='RGBA')
+            #draw.text((0,0), label['Name'] + "(" + conf_s + ")")
+            items.append((rectImg, label['Name'], conf_s))
+
+            # if len(items) < 20 :
+            #     items.append((rectImg, label['Name']))
+            # else :
+            #     print("Too many items to display - ignoring", label['Name'])
+
+
+    for rect in rects :
+        cv2.rectangle(img, rect[0], rect[1], thickness=1)
+
     cv2.imshow('image', img)
+
+    # Displays each item in its own window, same size as in original, but with annoying grey to create a minimum
+    # window size. Needs to have a unique window name for each one, or just superimpose.
+    # Needs more work!
+    n = 0
+    for item in items:
+        windowName = 'I_' + str(n) + " " + item[1] + " " + item[2]
+        n += 1
+        cv2.imshow(windowName, item[0])
+
+    # Keep windoes open until a key is pressed, while any of the Windows is in focus.
     cv2.waitKey(0)
     cv2.destroyAllWindows()
 
@@ -181,8 +247,8 @@ def main(argv) :
     #imgFile = 'AI Services/burgos.jpg'
 
     #displayImageWithMatPlotLib(imgFile, labelsResponse)
-    displayImageWithPillow(imgFile, labelsResponse)
-    #displayImageWithOpenCV(imgFile)
+    #displayImageWithPillow(imgFile, labelsResponse)
+    displayImageWithOpenCV(imgFile, labelsResponse)
     #print("Labels detected :", str(label_count))
 
 if __name__ == "__main__" :    
