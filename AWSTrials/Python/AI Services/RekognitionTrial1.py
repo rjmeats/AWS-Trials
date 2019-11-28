@@ -1,16 +1,47 @@
 # Based on Amazon's example https://docs.aws.amazon.com/rekognition/latest/dg/images-bytes.html
+
+import sys
+import os
+
 import boto3
 import pprint
 
+import pickle
 
 def detect_labels_local_file(imgFile) :
-    client = boto3.client('rekognition')
 
-    with open(imgFile, 'rb') as image :
-        response = client.detect_labels(Image={'Bytes' : image.read() })
+    # Check for a cached response file
+    cacheFolder = "AI Services/responsesCache"
+    basename = os.path.basename(imgFile)
+
+    cacheFile = cacheFolder + "/" + basename + ".response"
+    prettyCacheFile = cacheFolder + "/" + basename + ".response.pretty.txt"
+
+    if os.path.isfile(cacheFile) :
+        print('Cache file ', cacheFile, ' found')
+
+        with open(cacheFile, 'rb') as f:
+            response = pickle.load(f)
+            print('Read from cache file', cacheFile)
+    else :
+        print('No cache file ', cacheFile, ' found')
+
+        client = boto3.client('rekognition')
+
+        with open(imgFile, 'rb') as image :
+            response = client.detect_labels(Image={'Bytes' : image.read() })
+            print('*** Invoked Rekognition ***')
+
+        with open(cacheFile, 'wb') as f:
+            pickle.dump(response, f)
+            print('Written to cache file', cacheFile)
 
     pp = pprint.PrettyPrinter(indent=4)
-    pp.pprint(response)
+    pstring = pp.pformat(response)
+    print(pstring)
+    with open(prettyCacheFile, 'w') as f:
+        f.write(pstring)
+        print('Written response to pretty file', prettyCacheFile)
 
     print()
     print('Detected labels in ' + imgFile)
@@ -231,22 +262,20 @@ def displayImageWithOpenCV(imgFile, labelsResponse) :
     cv2.destroyAllWindows()
 
 
-import sys
 
 def main(argv) :
     if len(argv) == 1 :
         print("No image file argument provided")
         imgFile = 'AI Services/woodbridge.jpg'
-        print("Using default image file location: ", imgFile, " with cached response data")
-        import WoodbridgeResponse
-        labelsResponse = WoodbridgeResponse.labelsResponse
+        print("Using default image file location: ", imgFile)
     else :
         imgFile = argv[1]
-        labelsResponse = detect_labels_local_file(imgFile)
 
-    #displayImageWithMatPlotLib(imgFile, labelsResponse)
+    labelsResponse = detect_labels_local_file(imgFile)
+
+    displayImageWithMatPlotLib(imgFile, labelsResponse)
     #displayImageWithPillow(imgFile, labelsResponse)
-    displayImageWithOpenCV(imgFile, labelsResponse)
+    #displayImageWithOpenCV(imgFile, labelsResponse)
 
 if __name__ == "__main__" :    
     main(sys.argv)
