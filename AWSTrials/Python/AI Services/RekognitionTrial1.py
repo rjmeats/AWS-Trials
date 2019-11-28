@@ -24,40 +24,32 @@ def detect_labels_local_file(imgFile) :
             response = pickle.load(f)
             print('Read from cache file', cacheFile)
     else :
-        print('No cache file ', cacheFile, ' found')
+        print('No cache file', cacheFile, 'found, invoking Rekognition ...')
 
         client = boto3.client('rekognition')
 
         with open(imgFile, 'rb') as image :
             response = client.detect_labels(Image={'Bytes' : image.read() })
-            print('*** Invoked Rekognition ***')
 
         with open(cacheFile, 'wb') as f:
             pickle.dump(response, f)
-            print('Written to cache file', cacheFile)
+            print('Written Rekognition response as binary object to cache file', cacheFile)
 
     pp = pprint.PrettyPrinter(indent=4)
     pstring = pp.pformat(response)
     #print(pstring)
     with open(prettyCacheFile, 'w') as f:
         f.write(pstring)
-        print('Written response to pretty file', prettyCacheFile)
+        print('Dumped formatted response to file', prettyCacheFile)
 
     print()
     print('Labels reported in {0}:'.format(imgFile))
     print()
     for label in response['Labels'] :
         parents = ", ".join([ d['Name'] for d in label['Parents'] ])
-        conf_s = "{0:.1f}%".format(label['Confidence'])
+        conf_s = "{0:.1f}".format(label['Confidence'])
         instanceCount = len(label['Instances'])
-        parentCount = len(label['Parents'])
         print("{0:20.20s} {1}   instances = {2:2d}   parents = {3}".format(label['Name'], conf_s, instanceCount, parents))
-        # if parentCount > 0 :
-        #     print(label['Name'] + " : " + conf_s + " : parents = " + parents)
-        # else :
-        #     print(label['Name'] + " : " + conf_s)
-        # if instanceCount > 0 :
-        #     print("- instances = ", instanceCount)
 
     return response
 
@@ -85,7 +77,7 @@ def displayImageWithMatPlotLib(imgFile, labelsResponse) :
     items = []
     for label in labels:
         instances = label['Instances']
-        conf_s = "{0:.1f}%".format(label['Confidence'])
+        conf_s = "{0:.1f}".format(label['Confidence'])
         #if(len(instances) == 0) :
         #    print("{0} : {1}".format(label['Name'], conf_s))
         #else :
@@ -96,7 +88,7 @@ def displayImageWithMatPlotLib(imgFile, labelsResponse) :
             boxc = 'green'
 
         for instance in instances :
-            conf_s = "{0:.1f}%".format(instance['Confidence'])
+            conf_s = "{0:.1f}".format(instance['Confidence'])
             box = instance['BoundingBox']
             boxheight = int(box['Height'] * verticalSize)
             boxwidth = int(box['Width'] * horizontalSize)
@@ -117,9 +109,14 @@ def displayImageWithMatPlotLib(imgFile, labelsResponse) :
     # Very rough attempt to show main image and then images of identified items on one plot. 
     # Could be laid out much better, and scaled better.
     colSetting = len(items)
+    if colSetting < 6 :
+        colSetting = 6
     rowSetting = 6
     fig = plt.figure(figsize=(colSetting, rowSetting))
-    grid = plt.GridSpec(4, len(items), hspace=1.2)
+    gridy = len(items)
+    if gridy == 0 :
+        gridy = 1
+    grid = plt.GridSpec(4, gridy, hspace=1.2)
     
     # Show main image
     main_ax = fig.add_subplot(grid[0:3, :])
@@ -155,7 +152,7 @@ def displayImageWithPillow(imgFile, labelsResponse) :
     items = []
     for label in labels:
         instances = label['Instances']
-        conf_s = "{0:.1f}%".format(label['Confidence'])
+        conf_s = "{0:.1f}".format(label['Confidence'])
         # if(len(instances) == 0) :
         #     print("{0} : {1}".format(label['Name'], conf_s))
         # else :
@@ -166,7 +163,7 @@ def displayImageWithPillow(imgFile, labelsResponse) :
             boxc = 'green'
 
         for instance in instances :
-            conf_s = "{0:.1f}%".format(instance['Confidence'])
+            conf_s = "{0:.1f}".format(instance['Confidence'])
             box = instance['BoundingBox']
             boxheight = int(box['Height'] * verticalSize)
             boxwidth = int(box['Width'] * horizontalSize)
@@ -234,7 +231,7 @@ def displayImageWithOpenCV(imgFile, labelsResponse) :
     items = []
     for label in labels:
         instances = label['Instances']
-        conf_s = "{0:.1f}%".format(label['Confidence'])
+        conf_s = "{0:.1f}".format(label['Confidence'])
         # if(len(instances) == 0) :
         #     print("{0} : {1}".format(label['Name'], conf_s))
         # else :
@@ -245,7 +242,7 @@ def displayImageWithOpenCV(imgFile, labelsResponse) :
             boxc = bgrcolorGreen
 
         for instance in instances :
-            conf_s = "{0:.1f}%".format(instance['Confidence'])
+            conf_s = "{0:.1f}".format(instance['Confidence'])
             box = instance['BoundingBox']
             boxheight = int(box['Height'] * verticalSize)
             boxwidth = int(box['Width'] * horizontalSize)
@@ -280,21 +277,18 @@ def displayImageWithOpenCV(imgFile, labelsResponse) :
     cv2.waitKey(0)
     cv2.destroyAllWindows()
 
-
-
 def main(argv) :
     if len(argv) == 1 :
-        print("No image file argument provided")
         imgFile = 'AI Services/woodbridge.jpg'
-        print("Using default image file location: ", imgFile)
+        print("No image file argument provided, using default : ", imgFile)
     else :
         imgFile = argv[1]
 
     labelsResponse = detect_labels_local_file(imgFile)
 
-    displayImageWithMatPlotLib(imgFile, labelsResponse)
+    #displayImageWithMatPlotLib(imgFile, labelsResponse)
     #displayImageWithPillow(imgFile, labelsResponse)
-    #displayImageWithOpenCV(imgFile, labelsResponse)
+    displayImageWithOpenCV(imgFile, labelsResponse)
 
 if __name__ == "__main__" :    
     main(sys.argv)
