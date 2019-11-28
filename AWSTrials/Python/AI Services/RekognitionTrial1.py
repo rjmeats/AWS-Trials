@@ -40,17 +40,18 @@ def displayImageWithMatPlotLib(imgFile, labelsResponse) :
     items = []
     for label in labels:
         instances = label['Instances']
+        conf_s = "{0:.1f}%".format(label['Confidence'])
         if(len(instances) == 0) :
-            print("{0} : {1:.1f}%".format(label['Name'], label['Confidence']))
+            print("{0} : {1}".format(label['Name'], conf_s))
         else :
-            print("{0} : {1:.1f}% : {2} instance(s)".format(label['Name'], label['Confidence'], len(instances)))
-#            print("{0} : {1} specific instance(s), confidence = {2:.1f}%".format(label['Name'], len(instances), label['Confidence']))
+            print("{0} : {1} : {2} instance(s)".format(label['Name'], conf_s, len(instances)))
         if label['Name'] == "Person" :
             boxc = 'red'
         elif len(instances):
             boxc = 'green'
 
         for instance in instances :
+            conf_s = "{0:.1f}%".format(instance['Confidence'])
             box = instance['BoundingBox']
             boxheight = int(box['Height'] * verticalSize)
             boxwidth = int(box['Width'] * horizontalSize)
@@ -64,7 +65,7 @@ def displayImageWithMatPlotLib(imgFile, labelsResponse) :
             rectImg = img[topoffset:topoffset+boxheight,leftoffset:leftoffset+boxwidth,:]
             print(rectImg.shape)
             if len(items) < 20 :
-                items.append((rectImg, label['Name']))
+                items.append((rectImg, label['Name'], conf_s))
             else :
                 print("Too many items to display - ignoring", label['Name'])
 
@@ -85,7 +86,7 @@ def displayImageWithMatPlotLib(imgFile, labelsResponse) :
     for i in range(0, len(items)) :
         sub_ax = fig.add_subplot(grid[3,i])
         sub_ax.imshow(items[i-1][0])
-        sub_ax.set_title(items[i-1][1])
+        sub_ax.set_title(items[i-1][1] + " (" + items[i-1][2] + ")")
         sub_ax.set_yticklabels([])
         sub_ax.set_xticklabels([])
     plt.show()
@@ -117,6 +118,7 @@ def displayImageWithPillow(imgFile, labelsResponse) :
             boxc = 'green'
 
         for instance in instances :
+            conf_s = "{0:.1f}%".format(instance['Confidence'])
             box = instance['BoundingBox']
             boxheight = int(box['Height'] * verticalSize)
             boxwidth = int(box['Width'] * horizontalSize)
@@ -128,7 +130,7 @@ def displayImageWithPillow(imgFile, labelsResponse) :
 
             crop = img.crop(rect)
             draw = ImageDraw.Draw(crop, mode='RGBA')
-            draw.text((0,0), label['Name'] + "(" + conf_s + ")")
+            draw.text((0,0), label['Name'] + " (" + conf_s + ")")
 
             items.append(crop)
 
@@ -168,6 +170,7 @@ def displayImageWithOpenCV(imgFile, labelsResponse) :
     # if do just 'import cv2'
     from cv2 import cv2
     img = cv2.imread(imgFile)
+    print(img.shape)
 
     # Potential aLpha handling
     # https://gist.github.com/IAmSuyogJadhav/305bfd9a0605a4c096383408bee7fd5c
@@ -192,6 +195,7 @@ def displayImageWithOpenCV(imgFile, labelsResponse) :
             boxc = bgrcolorGreen
 
         for instance in instances :
+            conf_s = "{0:.1f}%".format(instance['Confidence'])
             box = instance['BoundingBox']
             boxheight = int(box['Height'] * verticalSize)
             boxwidth = int(box['Width'] * horizontalSize)
@@ -206,15 +210,11 @@ def displayImageWithOpenCV(imgFile, labelsResponse) :
             #draw.text((0,0), label['Name'] + "(" + conf_s + ")")
             items.append((rectImg, label['Name'], conf_s))
 
-            # if len(items) < 20 :
-            #     items.append((rectImg, label['Name']))
-            # else :
-            #     print("Too many items to display - ignoring", label['Name'])
-
-
     for rect in rects :
         cv2.rectangle(img, rect[0], rect[1], thickness=1)
 
+    # For large images, this produces a window filling the screen but only showing a small part of the whole,
+    # and no obvious way to scroll around.
     cv2.imshow('image', img)
 
     # Displays each item in its own window, same size as in original, but with annoying grey to create a minimum
@@ -231,7 +231,7 @@ def displayImageWithOpenCV(imgFile, labelsResponse) :
     cv2.destroyAllWindows()
 
 
-import sys, getopt
+import sys
 
 def main(argv) :
     if len(argv) == 1 :
@@ -244,12 +244,9 @@ def main(argv) :
         imgFile = argv[1]
         labelsResponse = detect_labels_local_file(imgFile)
 
-    #imgFile = 'AI Services/burgos.jpg'
-
     #displayImageWithMatPlotLib(imgFile, labelsResponse)
     #displayImageWithPillow(imgFile, labelsResponse)
     displayImageWithOpenCV(imgFile, labelsResponse)
-    #print("Labels detected :", str(label_count))
 
 if __name__ == "__main__" :    
     main(sys.argv)
