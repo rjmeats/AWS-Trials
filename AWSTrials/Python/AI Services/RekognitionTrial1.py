@@ -38,15 +38,26 @@ def detect_labels_local_file(imgFile) :
 
     pp = pprint.PrettyPrinter(indent=4)
     pstring = pp.pformat(response)
-    print(pstring)
+    #print(pstring)
     with open(prettyCacheFile, 'w') as f:
         f.write(pstring)
         print('Written response to pretty file', prettyCacheFile)
 
     print()
-    print('Detected labels in ' + imgFile)
+    print('Labels reported in {0}:'.format(imgFile))
+    print()
     for label in response['Labels'] :
-        print(label['Name'] + " : " + str(label['Confidence']) + " : instances = " + str(len(label['Instances'])))
+        parents = ", ".join([ d['Name'] for d in label['Parents'] ])
+        conf_s = "{0:.1f}%".format(label['Confidence'])
+        instanceCount = len(label['Instances'])
+        parentCount = len(label['Parents'])
+        print("{0:20.20s} {1}   instances = {2:2d}   parents = {3}".format(label['Name'], conf_s, instanceCount, parents))
+        # if parentCount > 0 :
+        #     print(label['Name'] + " : " + conf_s + " : parents = " + parents)
+        # else :
+        #     print(label['Name'] + " : " + conf_s)
+        # if instanceCount > 0 :
+        #     print("- instances = ", instanceCount)
 
     return response
 
@@ -65,6 +76,9 @@ def displayImageWithMatPlotLib(imgFile, labelsResponse) :
 
     verticalSize, horizontalSize, dummy = img.shape
 
+    print()
+    print('Displaying using MatPlotLib, image type is {0}, shape is {1}'.format(type(img), img.shape))
+
     #labels = responseData['Labels']
     patches = []
     labels = labelsResponse['Labels']
@@ -72,10 +86,10 @@ def displayImageWithMatPlotLib(imgFile, labelsResponse) :
     for label in labels:
         instances = label['Instances']
         conf_s = "{0:.1f}%".format(label['Confidence'])
-        if(len(instances) == 0) :
-            print("{0} : {1}".format(label['Name'], conf_s))
-        else :
-            print("{0} : {1} : {2} instance(s)".format(label['Name'], conf_s, len(instances)))
+        #if(len(instances) == 0) :
+        #    print("{0} : {1}".format(label['Name'], conf_s))
+        #else :
+        #    print("{0} : {1} : {2} instance(s)".format(label['Name'], conf_s, len(instances)))
         if label['Name'] == "Person" :
             boxc = 'red'
         elif len(instances):
@@ -94,7 +108,7 @@ def displayImageWithMatPlotLib(imgFile, labelsResponse) :
 
             # Pull out the part of the image that contains the item into a separate small image.
             rectImg = img[topoffset:topoffset+boxheight,leftoffset:leftoffset+boxwidth,:]
-            print(rectImg.shape)
+            #print(rectImg.shape)
             if len(items) < 20 :
                 items.append((rectImg, label['Name'], conf_s))
             else :
@@ -131,6 +145,9 @@ def displayImageWithPillow(imgFile, labelsResponse) :
 
     img = Image.open(imgFile) 
 
+    print()
+    print('Displaying using Pillow, image type is {0}, size is {1}'.format(type(img), img.size))
+
     horizontalSize, verticalSize = img.size   # (x,y) NB Opposite way round from matplotlib
 
     labels = labelsResponse['Labels']
@@ -139,10 +156,10 @@ def displayImageWithPillow(imgFile, labelsResponse) :
     for label in labels:
         instances = label['Instances']
         conf_s = "{0:.1f}%".format(label['Confidence'])
-        if(len(instances) == 0) :
-            print("{0} : {1}".format(label['Name'], conf_s))
-        else :
-            print("{0} : {1} : {2} instance(s)".format(label['Name'], conf_s, len(instances)))
+        # if(len(instances) == 0) :
+        #     print("{0} : {1}".format(label['Name'], conf_s))
+        # else :
+        #     print("{0} : {1} : {2} instance(s)".format(label['Name'], conf_s, len(instances)))
         if label['Name'] == "Person" :
             boxc = 'red'
         elif len(instances):
@@ -201,7 +218,9 @@ def displayImageWithOpenCV(imgFile, labelsResponse) :
     # if do just 'import cv2'
     from cv2 import cv2
     img = cv2.imread(imgFile)
-    print(img.shape)
+
+    print()
+    print('Displaying using OpenCV, image type is {0}, shape is {1}'.format(type(img), img.shape))
 
     # Potential aLpha handling
     # https://gist.github.com/IAmSuyogJadhav/305bfd9a0605a4c096383408bee7fd5c
@@ -216,10 +235,10 @@ def displayImageWithOpenCV(imgFile, labelsResponse) :
     for label in labels:
         instances = label['Instances']
         conf_s = "{0:.1f}%".format(label['Confidence'])
-        if(len(instances) == 0) :
-            print("{0} : {1}".format(label['Name'], conf_s))
-        else :
-            print("{0} : {1} : {2} instance(s)".format(label['Name'], conf_s, len(instances)))
+        # if(len(instances) == 0) :
+        #     print("{0} : {1}".format(label['Name'], conf_s))
+        # else :
+        #     print("{0} : {1} : {2} instance(s)".format(label['Name'], conf_s, len(instances)))
         if label['Name'] == "Person" :
             boxc = bgrcolorRed
         elif len(instances):
