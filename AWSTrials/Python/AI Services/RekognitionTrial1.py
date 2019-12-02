@@ -89,15 +89,46 @@ def dumpLabelInfo(imgFile, labelsResponse) :
     print('Labels found in {0}:'.format(imgFile))
     print()
     for label in labelsResponse['Labels'] :
-        parents = ", ".join([ d['Name'] for d in label['Parents'] ])
-        conf_s = "{0:.1f}".format(label['Confidence'])
+        parents = ', '.join([ d['Name'] for d in label['Parents'] ])
+        conf_s = '{0:.1f}'.format(label['Confidence'])
         # 'Instances' are cases where Rekognition provides a bounding box.
         instanceCount = len(label['Instances'])
-        print("{0:20.20s} {1}   instances = {2:2d}   parents = {3}".format(label['Name'], conf_s, instanceCount, parents))
+        print('{0:20.20s} {1}   instances = {2:2d}   parents = {3}'.format(label['Name'], conf_s, instanceCount, parents))
+
+# #####################################################################################################
+
+def extractInstancesInfo(img, labelsResponse) :
+    """ Extract basic info about all the 'instances' reported by Rekognition in the image """
+
+    verticalSize, horizontalSize = img.shape[0], img.shape[1]
+    extractions = []
+
+    for label in labelsResponse['Labels']:
+        instances = label['Instances']
+        for instance in instances :
+            info = {}
+            info['labelname'] = label['Name']
+            info['conf'] = instance['Confidence']
+            info['conf_s'] = '{0:.1f}'.format(instance['Confidence'])
+            box = instance['BoundingBox']
+            info['height'] = int(box['Height'] * verticalSize)
+            info['width'] = int(box['Width'] * horizontalSize)
+            info['topoffset'] = int(box['Top'] *verticalSize)
+            info['bottomoffset'] = info['topoffset'] + info['height']
+            info['leftoffset'] = int(box['Left'] * horizontalSize)
+            info['rightoffset'] = info['leftoffset'] + info['width']
+            info['crop'] = img[
+                    info['topoffset']:info['bottomoffset'],
+                    info['leftoffset']:info['rightoffset'],
+                    :]
+            extractions.append(info)
+
+    return extractions
 
 # #####################################################################################################
 
 def displayImageWithMatPlotLib(imgFile, labelsResponse) :
+    """ Display the image and identified items within it, using the MatPlotLib library """
 
     import matplotlib.image as mpimg 
 
@@ -111,46 +142,26 @@ def displayImageWithMatPlotLib(imgFile, labelsResponse) :
     print()
     print('Displaying using MatPlotLib, image type is {0}, shape is {1}'.format(type(img), img.shape))
 
-    verticalSize, horizontalSize = img.shape[0], img.shape[1]
-    extractions = []
-
-    for label in labelsResponse['Labels']:
-        instances = label['Instances']
-        for instance in instances :
-            info = {}
-            info['labelname'] = label['Name']
-            info['conf'] = instance['Confidence']
-            info['conf_s'] = "{0:.1f}".format(instance['Confidence'])
-            box = instance['BoundingBox']
-            info['boxheight'] = int(box['Height'] * verticalSize)
-            info['boxwidth'] = int(box['Width'] * horizontalSize)
-            info['topoffset'] = int(box['Top'] *verticalSize)
-            info['bottomoffset'] = info['topoffset'] + info['boxheight']
-            info['leftoffset'] = int(box['Left'] * horizontalSize)
-            info['rightoffset'] = info['leftoffset'] + info['boxwidth']
-            info['crop'] = img[
-                    info['topoffset']:info['bottomoffset'],
-                    info['leftoffset']:info['rightoffset'],
-                    :]
-            extractions.append(info)
-
-    drawMatPlotLib(img, extractions)
+    # Pull out the info from the response relating to instances found within the image, and plot them
+    # using MatPlotLib
+    instancesInfo = extractInstancesInfo(img, labelsResponse)
+    drawMatPlotLib(img, instancesInfo)
     
-def drawMatPlotLib(img, extractions) :
+def drawMatPlotLib(img, instancesInfo) :
     import matplotlib.pyplot as plt 
     patches = []
     items = []
-    for info in extractions :
-        boxc = 'red' if info['labelname'] == "Person" else 'green'
+    for info in instancesInfo :
+        boxc = 'red' if info['labelname'] == 'Person' else 'green'
         # Plot a box on the image at the appropriate point. NB line of rectangle is outside selected area (unlike cv2)
         #ax.add_patch(plt.Rectangle((leftoffset, topoffset), boxwidth, boxheight, edgecolor=boxc, alpha=0.5, lw=1,facecolor='none'))
-        patches.append(plt.Rectangle((info['leftoffset'], info['topoffset']), info['boxwidth'], info['boxheight'], 
+        patches.append(plt.Rectangle((info['leftoffset'], info['topoffset']), info['width'], info['height'], 
                             edgecolor=boxc, alpha=0.5, lw=4,facecolor='none'))
 
         if len(items) < 20 :
             items.append((info['crop'], info['labelname'], info['conf_s']))
         else :
-            print("Too many items to display - ignoring", info['labelname'])
+            print('Too many items to display - ignoring', info['labelname'])
 
     # Very rough attempt to show main image and then images of identified items on one plot. 
     # Could be laid out much better, and scaled better.
@@ -174,15 +185,18 @@ def drawMatPlotLib(img, extractions) :
     for i in range(0, len(items)) :
         sub_ax = fig.add_subplot(grid[3,i])
         sub_ax.imshow(items[i-1][0])
-        sub_ax.set_title(items[i-1][1] + " (" + items[i-1][2] + ")")
+        sub_ax.set_title(items[i-1][1] + ' (' + items[i-1][2] + ')')
         sub_ax.set_yticklabels([])
         sub_ax.set_xticklabels([])
     plt.show()
 
-def displayImageWithPillow(imgFile, labelsResponse) :
+# #####################################################################################################
 
-# https://www.geeksforgeeks.org/reading-images-in-python/
-# https://pillow.readthedocs.io/en/stable/
+def displayImageWithPillow(imgFile, labelsResponse) :
+    """ Display the image and identified items within it, using the Pillow library """
+
+    # https://www.geeksforgeeks.org/reading-images-in-python/
+    # https://pillow.readthedocs.io/en/stable/
 
     from PIL import Image, ImageDraw, ImageColor
 
@@ -201,14 +215,14 @@ def displayImageWithPillow(imgFile, labelsResponse) :
     items = []
     for label in labels:
         instances = label['Instances']
-        conf_s = "{0:.1f}".format(label['Confidence'])
-        if label['Name'] == "Person" :
+        conf_s = '{0:.1f}'.format(label['Confidence'])
+        if label['Name'] == 'Person' :
             boxc = 'red'
         elif len(instances):
             boxc = 'green'
 
         for instance in instances :
-            conf_s = "{0:.1f}".format(instance['Confidence'])
+            conf_s = '{0:.1f}'.format(instance['Confidence'])
             box = instance['BoundingBox']
             boxheight = int(box['Height'] * verticalSize)
             boxwidth = int(box['Width'] * horizontalSize)
@@ -220,15 +234,9 @@ def displayImageWithPillow(imgFile, labelsResponse) :
 
             crop = img.crop(rect)
             draw = ImageDraw.Draw(crop, mode='RGBA')
-            draw.text((0,0), label['Name'] + " (" + conf_s + ")")
+            draw.text((0,0), label['Name'] + ' (' + conf_s + ')')
 
             items.append(crop)
-
-            # if len(items) < 20 :
-            #     items.append((rectImg, label['Name']))
-            # else :
-            #     print("Too many items to display - ignoring", label['Name'])
-
 
     # print(type(img))
     # print(img.format)     
@@ -255,67 +263,66 @@ def displayImageWithPillow(imgFile, labelsResponse) :
 
 # 
 
+
+# #####################################################################################################
+
 def displayImageWithOpenCV(imgFile, labelsResponse) :
-    # NB pylint is showing warnings about not finding cv2 members - https://github.com/PyCQA/pylint/issues/2426
-    # if do just 'import cv2'
-    from cv2 import cv2
+    """ Display the image and identified items within it, using the OpenCV library """
+    
+    from cv2 import cv2     # NB pylint shows warnings about not finding cv2 members if we do
+                            # just 'import cv2' - https://github.com/PyCQA/pylint/issues/2426
+
+    # Read in the image, with MatPlotLib providing a 3-D numpy array
+    # Dimensions of the numpy array are:
+    # - y axis, moving down from the top of the image to the bottom
+    # - x axis, moving from the left side of the image to right
+    # - colour, as three separate values, for B,G,R - NB the reverse order compared to MatPlotLib
     img = cv2.imread(imgFile)
 
     print()
     print('Displaying using OpenCV, image type is {0}, shape is {1}'.format(type(img), img.shape))
+
+    # Pull out the info from the response relating to instances found within the image, and plot them
+    # using MatPlotLib
+    instancesInfo = extractInstancesInfo(img, labelsResponse)
+    drawCV2(img, instancesInfo)
+    
+# #####################################################################################################
+
+def drawCV2(img, instancesInfo) :
+
+    from cv2 import cv2
 
     # Potential aLpha handling
     # https://gist.github.com/IAmSuyogJadhav/305bfd9a0605a4c096383408bee7fd5c
     bgrcolorRed = (0, 0, 255)
     bgrcolorGreen = (0, 255, 0)
 
-    verticalSize, horizontalSize, dummy = img.shape
+    modifiedImage = img.copy()
 
-    labels = labelsResponse['Labels']
-    rects = []
-    items = []
-    for label in labels:
-        instances = label['Instances']
-        conf_s = "{0:.1f}".format(label['Confidence'])
-        if label['Name'] == "Person" :
-            boxc = bgrcolorRed
-        elif len(instances):
-            boxc = bgrcolorGreen
-        for instance in instances :
-            conf_s = "{0:.1f}".format(instance['Confidence'])
-            box = instance['BoundingBox']
-            boxheight = int(box['Height'] * verticalSize)
-            boxwidth = int(box['Width'] * horizontalSize)
-            topoffset = int(box['Top'] *verticalSize)
-            leftoffset = int(box['Left'] * horizontalSize)
-
-            rect = leftoffset,topoffset, boxwidth, boxheight
-            rects.append((rect, boxc))
-
-            rectImg = img[topoffset:topoffset+boxheight,leftoffset:leftoffset+boxwidth,:].copy()
-            #draw = ImageDraw.Draw(crop, mode='RGBA')
-            #draw.text((0,0), label['Name'] + "(" + conf_s + ")")
-            items.append((rectImg, label['Name'], conf_s))
-
-    for rect in rects :
-        cv2.rectangle(img, rect[0], rect[1], thickness=1)
+    for info in instancesInfo :
+        #cv2.rectangle(img, rect[0], rect[1], thickness=1)
+        boxc = bgrcolorRed if info['labelname'] == 'Person' else bgrcolorGreen
+        cv2.rectangle(modifiedImage, (info['leftoffset'], info['topoffset'], info['width'], info['height']), color=boxc, thickness=1 )
 
     # For large images, this produces a window filling the screen but only showing a small part of the whole,
     # and no obvious way to scroll around.
-    cv2.imshow('image', img)
+    cv2.imshow('image', modifiedImage)
 
     # Displays each item in its own window, same size as in original, but with annoying grey to create a minimum
     # window size. Needs to have a unique window name for each one, or just superimpose.
     # Needs more work!
     n = 0
-    for item in items:
-        windowName = 'I_' + str(n) + " " + item[1] + " " + item[2]
+    for info in instancesInfo:
+        windowName = 'I_' + str(n) + ' ' + info['labelname'] + ' ' + info['conf_s']
         n += 1
-        cv2.imshow(windowName, item[0])
+        cv2.imshow(windowName, info['crop'])
 
-    # Keep windoes open until a key is pressed, while any of the Windows is in focus.
+    # # Keep windoes open until a key is pressed, while any of the Windows is in focus.
     cv2.waitKey(0)
     cv2.destroyAllWindows()
+
+# #####################################################################################################
 
 def main(argv) :
 
@@ -323,13 +330,13 @@ def main(argv) :
         imgFile = argv[1]
     else :
         imgFile = 'AI Services/woodbridge.jpg'
-        print("No image file argument provided, using default : ", imgFile)
+        print('No image file argument provided, using default : ', imgFile)
 
     if len(argv) > 2 :
         tool = argv[2]
     else :
         tool = 'MatPlotLib'
-        print("No tool argument provided, using default : ", tool)
+        print('No tool argument provided, using default : ', tool)
 
     # Process the image file
     labelsResponse = detectLabelsFromLocalFile(imgFile)
@@ -340,16 +347,16 @@ def main(argv) :
         displayImageWithMatPlotLib(imgFile, labelsResponse)
     elif tool.upper() == 'Pillow'.upper() :
         displayImageWithPillow(imgFile, labelsResponse)
-    elif tool.upper() == 'OpenCV'.upper() :
+    elif tool.upper() == 'OpenCV'.upper() or tool.upper() == 'CV2'.upper() :
         displayImageWithOpenCV(imgFile, labelsResponse)
-    elif tool == "-" :
+    elif tool == '-' :
         print()
-        print("No display option specified")
+        print('No display option specified')
     else :
         print()
-        print("Unknown display tool:", tool)
+        print('Unknown display tool:', tool)
 
-if __name__ == "__main__" :    
+if __name__ == '__main__' :    
     main(sys.argv)
 
 # https://towardsdatascience.com/image-manipulation-tools-for-python-6eb0908ed61f
