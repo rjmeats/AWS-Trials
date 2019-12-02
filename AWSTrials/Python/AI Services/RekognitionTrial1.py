@@ -1,57 +1,100 @@
-# Based on Amazon's example https://docs.aws.amazon.com/rekognition/latest/dg/images-bytes.html
+# Read a local image file, send it to the Amazon Rekognition API to extract a set of items
+# found in the image, and then manipulate the image to indicate what was found and where.
+#
+# https://docs.aws.amazon.com/rekognition/latest/dg/
+#
+# Does this with three different Python image-processing tools to see how they work.
+# - MatPlotLib
+# - Pillow
+# - OpenCV
 
 import sys
 import os
 
-import boto3
-import pprint
+import numpy as np      
+import boto3            # Python interface to AWS
+import pickle           # To save Rekognition response in a simple local cache
+import pprint           # Dump Python data structure showing the Rekognition response in a readable format
 
-import pickle
+# #####################################################################################################
 
-def detect_labels_local_file(imgFile) :
+# Invoke Rekognition, via Boto3, to extract 'labels' from an image in a specified file. Responses are
+# cached locally to avoid repeated calls to Rekognition for the same image file:
+# - mainly for speed, avoids the time taken uploading the image to Rekognition each time, as well as
+#   Rekognition processing time
+# - also avoids some AWS charging for Rekognition use
 
-    # Check for a cached response file
-    cacheFolder = "AI Services/responsesCache"
-    basename = os.path.basename(imgFile)
+def detectLabelsFromLocalFile(imgFile) :
+    """ Return Rekognition label data (in Boto3 form) extracted from the specified image file. """
 
-    cacheFile = cacheFolder + "/" + basename + ".response"
-    prettyCacheFile = cacheFolder + "/" + basename + ".response.pretty.txt"
+    # Check for a cached response file. The cached response will be in a cache folder, with the cached
+    # file name derived from the image file name = NB the current simple scheme doesn't work when different
+    # images have the same file name! Also, doesn't clear the cache ever, or put a time limit on entries,
+    # so not operationally robust.
+
+    imgFileBasename = os.path.basename(imgFile)
+
+    # Use cache folder specified in environment, if present, otherwise a default.
+    envVarName = 'REKOGNITION_RESPONSE_CACHE_LOCATION'
+    cacheDefault = os.path.join(os.path.dirname(__file__), 'responsesCache')
+    cacheLocation = os.environ.get(envVarName, cacheDefault)
+
+    # We cache two files per image: a 'pickle' format data structure, and a human-readable form of the same data
+    cacheFile = os.path.join(cacheLocation, imgFileBasename + '.response')
+    prettyCacheFile = os.path.join(cacheLocation, imgFileBasename + '.response.pretty.txt')
 
     if os.path.isfile(cacheFile) :
-        print('Cache file ', cacheFile, ' found')
+        print('Cache file {0} found ..'.format(cacheFile))
 
         with open(cacheFile, 'rb') as f:
             response = pickle.load(f)
-            print('Read from cache file', cacheFile)
+            print('.. read pre-existing response from cache file')
     else :
-        print('No cache file', cacheFile, 'found, invoking Rekognition ...')
+        print('No cache file {0} found, invoking Rekognition ..'.format(cacheFile))
 
+        # Use boto3 to make the Rekognition 'detect labels' call, passing in the image as 
+        # bytes (which Boto3 presumably converts to base-64 encoding).
         client = boto3.client('rekognition')
-
         with open(imgFile, 'rb') as image :
             response = client.detect_labels(Image={'Bytes' : image.read() })
+            print('.. read response from Rekognition')
 
+        # Boto3 converts the raw Rekognition HTTP response to a Python data structure. Use pickle to
+        # cache this data.
         with open(cacheFile, 'wb') as f:
             pickle.dump(response, f)
-            print('Written Rekognition response as binary object to cache file', cacheFile)
+            print('Written Rekognition response as binary object to cache file {0}'.format(cacheFile))
 
+    # Produce a human-readable version of the Rekognition+Boto3 response data structure, and cache this too.
     pp = pprint.PrettyPrinter(indent=4)
     pstring = pp.pformat(response)
-    #print(pstring)
     with open(prettyCacheFile, 'w') as f:
         f.write(pstring)
-        print('Dumped formatted response to file', prettyCacheFile)
+        print('Dumped formatted response to file {0}'.format(prettyCacheFile))
+
+    return response
+
+# #####################################################################################################
+
+def dumpLabelInfo(imgFile, labelsResponse) :
+    """ Print out basic info about the image file and the Rekognition labels found in it """
+
+    import matplotlib.image as mpimg 
+    img = mpimg.imread(imgFile)
 
     print()
-    print('Labels reported in {0}:'.format(imgFile))
+    print('File size: {0} bytes'.format(os.path.getsize(imgFile)))
+    print('Image dimensions v x h: {0} x {1}'.format(img.shape[0], img.shape[1]))
     print()
-    for label in response['Labels'] :
+    print('Labels found in {0}:'.format(imgFile))
+    print()
+    for label in labelsResponse['Labels'] :
         parents = ", ".join([ d['Name'] for d in label['Parents'] ])
         conf_s = "{0:.1f}".format(label['Confidence'])
         instanceCount = len(label['Instances'])
         print("{0:20.20s} {1}   instances = {2:2d}   parents = {3}".format(label['Name'], conf_s, instanceCount, parents))
 
-    return response
+# #####################################################################################################
 
 def displayImageWithMatPlotLib(imgFile, labelsResponse) :
 
@@ -78,10 +121,6 @@ def displayImageWithMatPlotLib(imgFile, labelsResponse) :
     for label in labels:
         instances = label['Instances']
         conf_s = "{0:.1f}".format(label['Confidence'])
-        #if(len(instances) == 0) :
-        #    print("{0} : {1}".format(label['Name'], conf_s))
-        #else :
-        #    print("{0} : {1} : {2} instance(s)".format(label['Name'], conf_s, len(instances)))
         if label['Name'] == "Person" :
             boxc = 'red'
         elif len(instances):
@@ -144,6 +183,9 @@ def displayImageWithPillow(imgFile, labelsResponse) :
 
     print()
     print('Displaying using Pillow, image type is {0}, size is {1}'.format(type(img), img.size))
+    # Convert the image to a numpy array as follows
+    npa = np.array(img)
+    print(type(npa), npa.shape)
 
     horizontalSize, verticalSize = img.size   # (x,y) NB Opposite way round from matplotlib
 
@@ -153,10 +195,6 @@ def displayImageWithPillow(imgFile, labelsResponse) :
     for label in labels:
         instances = label['Instances']
         conf_s = "{0:.1f}".format(label['Confidence'])
-        # if(len(instances) == 0) :
-        #     print("{0} : {1}".format(label['Name'], conf_s))
-        # else :
-        #     print("{0} : {1} : {2} instance(s)".format(label['Name'], conf_s, len(instances)))
         if label['Name'] == "Person" :
             boxc = 'red'
         elif len(instances):
@@ -232,15 +270,10 @@ def displayImageWithOpenCV(imgFile, labelsResponse) :
     for label in labels:
         instances = label['Instances']
         conf_s = "{0:.1f}".format(label['Confidence'])
-        # if(len(instances) == 0) :
-        #     print("{0} : {1}".format(label['Name'], conf_s))
-        # else :
-        #     print("{0} : {1} : {2} instance(s)".format(label['Name'], conf_s, len(instances)))
         if label['Name'] == "Person" :
             boxc = bgrcolorRed
         elif len(instances):
             boxc = bgrcolorGreen
-
         for instance in instances :
             conf_s = "{0:.1f}".format(instance['Confidence'])
             box = instance['BoundingBox']
@@ -278,17 +311,39 @@ def displayImageWithOpenCV(imgFile, labelsResponse) :
     cv2.destroyAllWindows()
 
 def main(argv) :
-    if len(argv) == 1 :
+
+    if len(argv) > 1 and argv[1] != '-' :
+        imgFile = argv[1]
+    else :
         imgFile = 'AI Services/woodbridge.jpg'
         print("No image file argument provided, using default : ", imgFile)
+
+    if len(argv) > 2 :
+        tool = argv[2]
     else :
-        imgFile = argv[1]
+        tool = 'MatPlotLib'
+        print("No tool argument provided, using default : ", tool)
 
-    labelsResponse = detect_labels_local_file(imgFile)
+    # Process the image file
+    labelsResponse = detectLabelsFromLocalFile(imgFile)
+    dumpLabelInfo(imgFile, labelsResponse)
 
-    #displayImageWithMatPlotLib(imgFile, labelsResponse)
-    #displayImageWithPillow(imgFile, labelsResponse)
-    displayImageWithOpenCV(imgFile, labelsResponse)
+    # Display the image and the identified items in it
+    if tool.upper() == 'MatPlotLib'.upper() :
+        displayImageWithMatPlotLib(imgFile, labelsResponse)
+    elif tool.upper() == 'Pillow'.upper() :
+        displayImageWithPillow(imgFile, labelsResponse)
+    elif tool.upper() == 'OpenCV'.upper() :
+        displayImageWithOpenCV(imgFile, labelsResponse)
+    elif tool == "-" :
+        print()
+        print("No display option specified")
+    else :
+        print()
+        print("Unknown display tool:", tool)
 
 if __name__ == "__main__" :    
     main(sys.argv)
+
+# https://towardsdatascience.com/image-manipulation-tools-for-python-6eb0908ed61f
+# https://www.geeksforgeeks.org/working-images-python/
