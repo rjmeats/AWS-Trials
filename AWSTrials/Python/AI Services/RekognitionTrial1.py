@@ -91,6 +91,7 @@ def dumpLabelInfo(imgFile, labelsResponse) :
     for label in labelsResponse['Labels'] :
         parents = ", ".join([ d['Name'] for d in label['Parents'] ])
         conf_s = "{0:.1f}".format(label['Confidence'])
+        # 'Instances' are cases where Rekognition provides a bounding box.
         instanceCount = len(label['Instances'])
         print("{0:20.20s} {1}   instances = {2:2d}   parents = {3}".format(label['Name'], conf_s, instanceCount, parents))
 
@@ -98,52 +99,58 @@ def dumpLabelInfo(imgFile, labelsResponse) :
 
 def displayImageWithMatPlotLib(imgFile, labelsResponse) :
 
-# https://www.geeksforgeeks.org/reading-images-in-python/
-
     import matplotlib.image as mpimg 
-    import matplotlib.pyplot as plt 
 
+    # Read in the image, with MatPlotLib providing a 3-D numpy array
+    # Dimensions of the numpy array are:
+    # - y axis, moving down from the top of the image to the bottom
+    # - x axis, moving from the left side of the image to right
+    # - colour, as three separate values, for R,G,B
     img = mpimg.imread(imgFile) 
-
-    #Fetching imaging size info from plot. But realised can get from image object more directly
-    #verticalSize = abs(ax.get_ybound()[1] - ax.get_ybound()[0])
-    #horizontalSize = abs(ax.get_xbound()[1] - ax.get_xbound()[0])
-
-    verticalSize, horizontalSize, dummy = img.shape
 
     print()
     print('Displaying using MatPlotLib, image type is {0}, shape is {1}'.format(type(img), img.shape))
 
-    #labels = responseData['Labels']
-    patches = []
-    labels = labelsResponse['Labels']
-    items = []
-    for label in labels:
+    verticalSize, horizontalSize = img.shape[0], img.shape[1]
+    extractions = []
+
+    for label in labelsResponse['Labels']:
         instances = label['Instances']
-        conf_s = "{0:.1f}".format(label['Confidence'])
-        if label['Name'] == "Person" :
-            boxc = 'red'
-        elif len(instances):
-            boxc = 'green'
-
         for instance in instances :
-            conf_s = "{0:.1f}".format(instance['Confidence'])
+            info = {}
+            info['labelname'] = label['Name']
+            info['conf'] = instance['Confidence']
+            info['conf_s'] = "{0:.1f}".format(instance['Confidence'])
             box = instance['BoundingBox']
-            boxheight = int(box['Height'] * verticalSize)
-            boxwidth = int(box['Width'] * horizontalSize)
-            topoffset = int(box['Top'] *verticalSize)
-            leftoffset = int(box['Left'] * horizontalSize)
-            # Plot a box on the image at the appropriate point. NB line of rectangle is outside selected area (unlike cv2)
-            #ax.add_patch(plt.Rectangle((leftoffset, topoffset), boxwidth, boxheight, edgecolor=boxc, alpha=0.5, lw=1,facecolor='none'))
-            patches.append(plt.Rectangle((leftoffset, topoffset), boxwidth, boxheight, edgecolor=boxc, alpha=0.5, lw=4,facecolor='none'))
+            info['boxheight'] = int(box['Height'] * verticalSize)
+            info['boxwidth'] = int(box['Width'] * horizontalSize)
+            info['topoffset'] = int(box['Top'] *verticalSize)
+            info['bottomoffset'] = info['topoffset'] + info['boxheight']
+            info['leftoffset'] = int(box['Left'] * horizontalSize)
+            info['rightoffset'] = info['leftoffset'] + info['boxwidth']
+            info['crop'] = img[
+                    info['topoffset']:info['bottomoffset'],
+                    info['leftoffset']:info['rightoffset'],
+                    :]
+            extractions.append(info)
 
-            # Pull out the part of the image that contains the item into a separate small image.
-            rectImg = img[topoffset:topoffset+boxheight,leftoffset:leftoffset+boxwidth,:]
-            #print(rectImg.shape)
-            if len(items) < 20 :
-                items.append((rectImg, label['Name'], conf_s))
-            else :
-                print("Too many items to display - ignoring", label['Name'])
+    drawMatPlotLib(img, extractions)
+    
+def drawMatPlotLib(img, extractions) :
+    import matplotlib.pyplot as plt 
+    patches = []
+    items = []
+    for info in extractions :
+        boxc = 'red' if info['labelname'] == "Person" else 'green'
+        # Plot a box on the image at the appropriate point. NB line of rectangle is outside selected area (unlike cv2)
+        #ax.add_patch(plt.Rectangle((leftoffset, topoffset), boxwidth, boxheight, edgecolor=boxc, alpha=0.5, lw=1,facecolor='none'))
+        patches.append(plt.Rectangle((info['leftoffset'], info['topoffset']), info['boxwidth'], info['boxheight'], 
+                            edgecolor=boxc, alpha=0.5, lw=4,facecolor='none'))
+
+        if len(items) < 20 :
+            items.append((info['crop'], info['labelname'], info['conf_s']))
+        else :
+            print("Too many items to display - ignoring", info['labelname'])
 
     # Very rough attempt to show main image and then images of identified items on one plot. 
     # Could be laid out much better, and scaled better.
