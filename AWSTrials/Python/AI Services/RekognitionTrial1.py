@@ -149,6 +149,8 @@ def displayImageWithMatPlotLib(imgFile, labelsResponse) :
     drawMatPlotLib(img.copy(), instancesInfo)
     
 def drawMatPlotLib(img, instancesInfo) :
+    """ Do the actual MatPlotLib display work """
+
     import matplotlib.pyplot as plt 
     patches = []
     items = []
@@ -158,8 +160,9 @@ def drawMatPlotLib(img, instancesInfo) :
         # using larger line widths, not clear if this can be controlled to plot the rectangle entirely within/without the area.
         # NB units of line width seem to stay fixed as picture is enlarged, so not just being applied as pixel changes to the image.
         # Some more info at https://stackoverflow.com/questions/30081846/set-matplotlib-rectangle-edge-to-outside-of-specified-width
-        patches.append(plt.Rectangle((info['leftoffset']-0.25, info['topoffset']-0.25), info['width']+0.5, info['height']+0.5, 
-                            edgecolor='yellow', alpha=0.4, lw=1,facecolor='none'))
+
+        #patches.append(plt.Rectangle((info['leftoffset']-0.25, info['topoffset']-0.25), info['width']+0.5, info['height']+0.5, 
+        #                    edgecolor='yellow', alpha=0.4, lw=1,facecolor='none'))
         patches.append(plt.Rectangle((info['leftoffset'], info['topoffset']), info['width'], info['height'], 
                             edgecolor=boxc, alpha=0.8, lw=1,facecolor='none'))
 
@@ -200,10 +203,9 @@ def drawMatPlotLib(img, instancesInfo) :
 def displayImageWithPillow(imgFile, labelsResponse) :
     """ Display the image and identified items within it, using the Pillow library """
 
-    # https://www.geeksforgeeks.org/reading-images-in-python/
     # https://pillow.readthedocs.io/en/stable/
 
-    from PIL import Image, ImageDraw, ImageColor
+    from PIL import Image
 
     img = Image.open(imgFile) 
 
@@ -221,61 +223,49 @@ def displayImageWithPillow(imgFile, labelsResponse) :
     # NB img.size (pillow) and npa.shape (numpy) have the y and x axes the opposite way round, so the
     # production of the numpy array seems to switch over the y and x axes so that they are the same
     # orientation as the direct numpy arrays produced by matplotlib and OpenCV2.
-    horizontalSize, verticalSize = img.size   # (x,y) NB Opposite way round from matplotlib
 
-    labels = labelsResponse['Labels']
-    rects = []
-    items = []
-    for label in labels:
-        instances = label['Instances']
-        conf_s = '{0:.1f}'.format(label['Confidence'])
-        if label['Name'] == 'Person' :
-            boxc = 'red'
-        elif len(instances):
-            boxc = 'green'
+    # Pull out the info from the response relating to instances found within the image, and plot them
+    # using Pillow
+    instancesInfo = extractInstancesInfo(npa, labelsResponse)
+    drawPillow(npa, instancesInfo)
 
-        for instance in instances :
-            conf_s = '{0:.1f}'.format(instance['Confidence'])
-            box = instance['BoundingBox']
-            boxheight = int(box['Height'] * verticalSize)
-            boxwidth = int(box['Width'] * horizontalSize)
-            topoffset = int(box['Top'] *verticalSize)
-            leftoffset = int(box['Left'] * horizontalSize)
+def drawPillow(img, instancesInfo) :
+    """ Do the actual Pillow display work """
 
-            rect = leftoffset,topoffset, leftoffset+boxwidth, topoffset+boxheight
-            rects.append((rect, boxc))
+    # https://docs.opencv.org/master/index.html
+    # https://docs.opencv.org/master/dc/da5/tutorial_py_drawing_functions.html
+    #  - NB old version https://docs.opencv.org/2.4/modules/core/doc/drawing_functions.html#rectangle
 
-            crop = img.crop(rect)
-            draw = ImageDraw.Draw(crop, mode='RGBA')
-            draw.text((0,0), label['Name'] + ' (' + conf_s + ')')
+    from PIL import Image, ImageDraw, ImageColor
 
-            items.append(crop)
+    # Recreate the image as a Pillow image object from the numpy RGB image
+    pilImage = Image.fromarray(img.astype('uint8'), 'RGB')
 
-    # print(type(img))
-    # print(img.format)     
-    # print(img.mode) 
-    # print(img.size) 
+    draw = ImageDraw.Draw(pilImage, mode='RGBA')
+    croppedImages = []
+    for info in instancesInfo :
+        # Draw rectangles on the main image
+        boxc = 'red' if info['labelname'] == 'Person' else 'green'
+        rect = (info['leftoffset'],info['topoffset'], info['rightoffset'], info['bottomoffset'])
+        alpha = 200
+        colour = (*ImageColor.getrgb(boxc), alpha)
+        draw.rectangle(rect, fill=None, outline=colour, width=2)
 
-    draw = ImageDraw.Draw(img, mode='RGBA')
-    for rect in rects :
-        alpha = 80
-        colour = (*ImageColor.getrgb(rect[1]),alpha)
-        draw.rectangle(rect[0], fill=None, outline=colour, width=5)
+        # Produced a separate cropped image for each item extracted.
+        croppedImage = Image.fromarray(info['crop'].astype('uint8'), 'RGB')
+        croppedDraw = ImageDraw.Draw(croppedImage, mode='RGBA')
+        # Write a title onto the cropped image
+        croppedDraw.text((0,0), info['labelname'] + ' (' + info['conf_s'] + ')')
+        croppedImages.append(croppedImage)
 
-    img.show() 
+    # Show the main image with added rectangles
+    pilImage.show()
 
-    # Displays each item on its own image page. Not clear how size of displayed image is determined.
-    # Pillow just invokes the Windows application assigned to .png files, so doesn't control size.
-    # Needs more work!
-    for item in items[0:3]:
-        item.show()
-
-# https://docs.opencv.org/master/index.html
-# https://docs.opencv.org/master/dc/da5/tutorial_py_drawing_functions.html
-#  - NB old version https://docs.opencv.org/2.4/modules/core/doc/drawing_functions.html#rectangle
-
+    # Show the first few extracted images. NB Pillow's 'show' opens a new window for each, which
+    # need to be manually closed one-by-one, so don't do too many of them.
+    for croppedImage in croppedImages[0:3] :
+        croppedImage.show()
 # 
-
 
 # #####################################################################################################
 
@@ -304,6 +294,7 @@ def displayImageWithOpenCV(imgFile, labelsResponse) :
 # #####################################################################################################
 
 def drawCV2(img, instancesInfo) :
+    """ Do the actual CV2 display work """
 
     from cv2 import cv2
 
@@ -311,12 +302,12 @@ def drawCV2(img, instancesInfo) :
     # https://gist.github.com/IAmSuyogJadhav/305bfd9a0605a4c096383408bee7fd5c
     bgrcolorRed = (0, 0, 255)
     bgrcolorGreen = (0, 255, 0)
-    bgrcolorYellow = (0, 255, 255)
+    #bgrcolorYellow = (0, 255, 255)
 
     for info in instancesInfo :
         boxc = bgrcolorRed if info['labelname'] == 'Person' else bgrcolorGreen
-        cv2.rectangle(img, (info['leftoffset'], info['topoffset'], info['width'], info['height']), color=boxc, thickness=1 )
-        cv2.rectangle(img, (info['leftoffset']-1, info['topoffset']-1, info['width']+2, info['height']+2), color=bgrcolorYellow, thickness=1 )
+        cv2.rectangle(img, (info['leftoffset'], info['topoffset'], info['width'], info['height']), color=boxc, thickness=2 )
+        #cv2.rectangle(img, (info['leftoffset']-1, info['topoffset']-1, info['width']+2, info['height']+2), color=bgrcolorYellow, thickness=1 )
 
     # For large images, this produces a window filling the screen but only showing a small part of the whole,
     # and no obvious way to scroll around.
