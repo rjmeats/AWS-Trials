@@ -232,10 +232,6 @@ def displayImageWithPillow(imgFile, labelsResponse) :
 def drawPillow(img, instancesInfo) :
     """ Do the actual Pillow display work """
 
-    # https://docs.opencv.org/master/index.html
-    # https://docs.opencv.org/master/dc/da5/tutorial_py_drawing_functions.html
-    #  - NB old version https://docs.opencv.org/2.4/modules/core/doc/drawing_functions.html#rectangle
-
     from PIL import Image, ImageDraw, ImageColor
 
     # Recreate the image as a Pillow image object from the numpy RGB image
@@ -295,6 +291,10 @@ def displayImageWithOpenCV(imgFile, labelsResponse) :
 
 def drawCV2(img, instancesInfo) :
     """ Do the actual CV2 display work """
+
+    # https://docs.opencv.org/master/index.html
+    # https://docs.opencv.org/master/dc/da5/tutorial_py_drawing_functions.html
+    #  - NB old version https://docs.opencv.org/2.4/modules/core/doc/drawing_functions.html#rectangle
 
     from cv2 import cv2
 
@@ -362,6 +362,3 @@ def main(argv) :
 
 if __name__ == '__main__' :    
     main(sys.argv)
-
-# https://towardsdatascience.com/image-manipulation-tools-for-python-6eb0908ed61f ????
-# https://www.geeksforgeeks.org/working-images-python/ ????
