@@ -98,7 +98,7 @@ def dumpLabelInfo(imgFile, labelsResponse) :
 # #####################################################################################################
 
 def extractInstancesInfo(img, labelsResponse) :
-    """ Extract basic info about all the 'instances' reported by Rekognition in the image """
+    """ Extract into a list the basic info about all the 'instances' reported by Rekognition in the image """
 
     verticalSize, horizontalSize = img.shape[0], img.shape[1]
     extractions = []
@@ -141,11 +141,12 @@ def displayImageWithMatPlotLib(imgFile, labelsResponse) :
 
     print()
     print('Displaying using MatPlotLib, image type is {0}, shape is {1}'.format(type(img), img.shape))
+    #print(img[0,0,0], img[0,0,1], img[0,0,2])
 
     # Pull out the info from the response relating to instances found within the image, and plot them
     # using MatPlotLib
     instancesInfo = extractInstancesInfo(img, labelsResponse)
-    drawMatPlotLib(img, instancesInfo)
+    drawMatPlotLib(img.copy(), instancesInfo)
     
 def drawMatPlotLib(img, instancesInfo) :
     import matplotlib.pyplot as plt 
@@ -153,10 +154,14 @@ def drawMatPlotLib(img, instancesInfo) :
     items = []
     for info in instancesInfo :
         boxc = 'red' if info['labelname'] == 'Person' else 'green'
-        # Plot a box on the image at the appropriate point. NB line of rectangle is outside selected area (unlike cv2)
-        #ax.add_patch(plt.Rectangle((leftoffset, topoffset), boxwidth, boxheight, edgecolor=boxc, alpha=0.5, lw=1,facecolor='none'))
+        # Plot a box on the image at the appropriate point. NB the drawn border of the rectangle straddles the actual border when 
+        # using larger line widths, not clear if this can be controlled to plot the rectangle entirely within/without the area.
+        # NB units of line width seem to stay fixed as picture is enlarged, so not just being applied as pixel changes to the image.
+        # Some more info at https://stackoverflow.com/questions/30081846/set-matplotlib-rectangle-edge-to-outside-of-specified-width
+        patches.append(plt.Rectangle((info['leftoffset']-0.25, info['topoffset']-0.25), info['width']+0.5, info['height']+0.5, 
+                            edgecolor='yellow', alpha=0.4, lw=1,facecolor='none'))
         patches.append(plt.Rectangle((info['leftoffset'], info['topoffset']), info['width'], info['height'], 
-                            edgecolor=boxc, alpha=0.5, lw=4,facecolor='none'))
+                            edgecolor=boxc, alpha=0.8, lw=1,facecolor='none'))
 
         if len(items) < 20 :
             items.append((info['crop'], info['labelname'], info['conf_s']))
@@ -204,10 +209,18 @@ def displayImageWithPillow(imgFile, labelsResponse) :
 
     print()
     print('Displaying using Pillow, image type is {0}, size is {1}'.format(type(img), img.size))
-    # Convert the image to a numpy array as follows
+    # Pillow produces an image object which is its own JpegImageFile type.
+    # Produce a numpy array from it as follows:
     npa = np.array(img)
-    print(type(npa), npa.shape)
-
+    #print(type(npa), npa.shape, img.size)
+    #print(npa[0,0,0], npa[0,0,1], npa[0,0,2])
+    # The numpy array dimensions are: 
+    # - y axis, moving down from the top of the image to the bottom
+    # - x axis, moving from the left side of the image to right
+    # - colour, as three separate values, for R,G,B
+    # NB img.size (pillow) and npa.shape (numpy) have the y and x axes the opposite way round, so the
+    # production of the numpy array seems to switch over the y and x axes so that they are the same
+    # orientation as the direct numpy arrays produced by matplotlib and OpenCV2.
     horizontalSize, verticalSize = img.size   # (x,y) NB Opposite way round from matplotlib
 
     labels = labelsResponse['Labels']
@@ -254,7 +267,7 @@ def displayImageWithPillow(imgFile, labelsResponse) :
     # Displays each item on its own image page. Not clear how size of displayed image is determined.
     # Pillow just invokes the Windows application assigned to .png files, so doesn't control size.
     # Needs more work!
-    for item in items[0:6]:
+    for item in items[0:3]:
         item.show()
 
 # https://docs.opencv.org/master/index.html
@@ -281,11 +294,12 @@ def displayImageWithOpenCV(imgFile, labelsResponse) :
 
     print()
     print('Displaying using OpenCV, image type is {0}, shape is {1}'.format(type(img), img.shape))
+    #print(img[0,0,0], img[0,0,1], img[0,0,2])
 
     # Pull out the info from the response relating to instances found within the image, and plot them
     # using MatPlotLib
     instancesInfo = extractInstancesInfo(img, labelsResponse)
-    drawCV2(img, instancesInfo)
+    drawCV2(img.copy(), instancesInfo)
     
 # #####################################################################################################
 
@@ -297,17 +311,16 @@ def drawCV2(img, instancesInfo) :
     # https://gist.github.com/IAmSuyogJadhav/305bfd9a0605a4c096383408bee7fd5c
     bgrcolorRed = (0, 0, 255)
     bgrcolorGreen = (0, 255, 0)
-
-    modifiedImage = img.copy()
+    bgrcolorYellow = (0, 255, 255)
 
     for info in instancesInfo :
-        #cv2.rectangle(img, rect[0], rect[1], thickness=1)
         boxc = bgrcolorRed if info['labelname'] == 'Person' else bgrcolorGreen
-        cv2.rectangle(modifiedImage, (info['leftoffset'], info['topoffset'], info['width'], info['height']), color=boxc, thickness=1 )
+        cv2.rectangle(img, (info['leftoffset'], info['topoffset'], info['width'], info['height']), color=boxc, thickness=1 )
+        cv2.rectangle(img, (info['leftoffset']-1, info['topoffset']-1, info['width']+2, info['height']+2), color=bgrcolorYellow, thickness=1 )
 
     # For large images, this produces a window filling the screen but only showing a small part of the whole,
     # and no obvious way to scroll around.
-    cv2.imshow('image', modifiedImage)
+    cv2.imshow('image', img)
 
     # Displays each item in its own window, same size as in original, but with annoying grey to create a minimum
     # window size. Needs to have a unique window name for each one, or just superimpose.
@@ -359,5 +372,5 @@ def main(argv) :
 if __name__ == '__main__' :    
     main(sys.argv)
 
-# https://towardsdatascience.com/image-manipulation-tools-for-python-6eb0908ed61f
-# https://www.geeksforgeeks.org/working-images-python/
+# https://towardsdatascience.com/image-manipulation-tools-for-python-6eb0908ed61f ????
+# https://www.geeksforgeeks.org/working-images-python/ ????
