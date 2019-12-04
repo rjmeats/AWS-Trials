@@ -82,11 +82,11 @@ def dumpLabelInfo(imgFile, labelsResponse) :
     import matplotlib.image as mpimg 
     img = mpimg.imread(imgFile)
 
-    print()
+    print('Image file {0}:'.format(imgFile))
     print('File size: {0} bytes'.format(os.path.getsize(imgFile)))
     print('Image dimensions v x h: {0} x {1}'.format(img.shape[0], img.shape[1]))
     print()
-    print('Labels found in {0}:'.format(imgFile))
+    print('Labels found by Amazon Rekognition:')
     print()
     for label in labelsResponse['Labels'] :
         parents = ', '.join([ d['Name'] for d in label['Parents'] ])
