@@ -56,10 +56,43 @@ def writeImageFile(filename, imgArray) :
     cv2.imwrite(filename, convertToBGR(imgArray))
     print('Image file saved:', filename)
 
+def extendImage(a, newy, newx) :
+    newa = np.full((newy, newx,3), 255, dtype='uint8')
+    newa[0:a.shape[0],0:a.shape[1]] = a[:,:]
+    print('Extended array of shape {0} to a new array of shape {1}'.format(a.shape, newa.shape))
+    return newa
+
 def addImageAt(top, left, amain, a) :
+    print('Adding image of shape {0} to image of shape {1} at point ({2},{3})'.format(
+            a.shape, amain.shape, top, left))
     # Check sizes and extend if necessary ?
+    if top + a.shape[0] > amain.shape[0] :
+        print('Need to extend down')
+        # Need to extend vertically
+        amain = extendImage(amain, top + a.shape[0], amain.shape[1])
+        print('New shape is {0}'.format(amain.shape))
+
+    if left + a.shape[1] > amain.shape[1] :
+        print('Need to extend right')
+        # Need to extend horizontally
+        amain = extendImage(amain, amain.shape[0], left + a.shape[1])
+        print('New shape is {0}'.format(amain.shape))
+
     amain[top:top+a.shape[0],left:left+a.shape[1]] = a[:,:]
     return amain
+
+def addConf(a, conf_s) :
+    a2 = a.copy()
+    textArray = getPillowText(conf_s)
+    print('Adding conf to {0} {1} - {2}'.format(a2.shape, conf_s, textArray.shape))
+    if textArray.shape[1] >= a2.shape[1] :
+        centreOffset = 0
+    else :
+        centreOffset = (a2.shape[1] - textArray.shape[1])//2
+
+    a2 = addImageAt(a2.shape[0], centreOffset, a2, textArray)
+    #show('conf', a2)
+    return a2
 
 def main(argv) :
 
@@ -89,53 +122,91 @@ def main(argv) :
     print()
     print('Image array type is {0}, shape is {1}'.format(type(imgArray), imgArray.shape))
 
-    a = np.full((4000,imgShape[1] + 200,3), 255, dtype='uint8')
+    verticalSpacing = 50
+    horizontalSpacing = 200
 
-    #show(imgFile, a)
+    a = np.full((imgShape[0] + verticalSpacing*2, imgShape[1] + horizontalSpacing*2, 3), 255, dtype='uint8')
+    print("1:", a.shape)
 
-    leftIndent = 100
-    verticalPoint = 100
+    verticalStartPoint = verticalSpacing
 
     # Add the image to the array
-    #a[100:100+imgShape[0],100:100+imgShape[1]] = imgArray[:,:]
-    addImageAt(verticalPoint, leftIndent, a, imgArray)
+    a = addImageAt(verticalStartPoint, horizontalSpacing, a, imgArray)
+    verticalStartPoint += imgArray.shape[0] + verticalSpacing
 
     #show(imgFile, a)
 
     instancesInfo = rt1.extractInstancesInfo(imgArray, labelsResponse)
 
-    # Add the image to the array
-    #a[1200:1200+imgShape[0],100:100+imgShape[1]] = imgWithRectangles[:,:]
-    #show(imgFile, a)
+    textArray = getPillowText(summary)
+    a = addImageAt(verticalStartPoint, horizontalSpacing, a, textArray)
+    verticalStartPoint += textArray.shape[0] + verticalSpacing
 
-    #addCV2Text(a, summary)
+    if len(instancesInfo) > 0 :
+        imgWithRectangles = addRectanglesToImage(imgArray.copy(), instancesInfo)
+        a = addImageAt(verticalStartPoint, horizontalSpacing, a, imgWithRectangles)
+        verticalStartPoint += imgWithRectangles.shape[0] + verticalSpacing
 
-    textArray = getPillowText(a, summary)
-    textShape = textArray.shape
-    verticalPoint = verticalPoint + imgArray.shape[0] + 100
-    addImageAt(verticalPoint, leftIndent, a, textArray)
+        footer = np.full((verticalSpacing, a.shape[1], 3), 255, dtype='uint8')
+        a = addImageAt(verticalStartPoint, horizontalSpacing, a, footer)
+        verticalStartPoint += footer.shape[0]
 
-    #a[2400:2400+textShape[0],100:100+textShape[1]] = textArray[:,:]
-    imgWithRectangles = addRectanglesToImage(imgArray.copy(), instancesInfo)
-    verticalPoint = verticalPoint + textArray.shape[0] + 100
-    addImageAt(verticalPoint, leftIndent, a, imgWithRectangles)
+        # Add a confidence number to each cropped image
+        for info in instancesInfo :
+            info['crop+conf'] = addConf(info['crop'], info['conf_s'])
 
-    # Add extracted images. Initially put each on a separate row, stop when out of room.
-    # Should add some text to show label and confidence.
-    verticalPoint = verticalPoint + imgWithRectangles.shape[0] + 100
-    widthAvailable = a.shape[1] - leftIndent
-    for info in instancesInfo :
-        crop = info['crop']
-        if verticalPoint + crop.shape[0] > a.shape[0] :
-            print("Reached bottom of canvas - not displaying", crop.shape)
-            # Or could copy to a bigger array ?
-            newa = np.full((verticalPoint + crop.shape[0] + 100,a.shape[1],3), 255, dtype='uint8')
-            addImageAt(0, 0, newa, a)
-            a = newa
-        #else :
-        addImageAt(verticalPoint, leftIndent, a, crop)
-        verticalPoint = verticalPoint + crop.shape[0] + 100
-        print('Added ', crop.shape, verticalPoint)
+        # Add extracted images. Initially put each on a separate row, stop when out of room.
+        # Should add some text to show label and confidence.
+        horizontalRightLimit = horizontalSpacing + imgWithRectangles.shape[1]
+        horizontalStartPoint = horizontalSpacing
+        currentLabelName = ''
+        rowHeight = 0
+        spacingMultiple = 1
+
+        for info in instancesInfo :
+            crop = info['crop+conf']
+            addLabel = False
+            useNewRow = False
+
+            if currentLabelName == '' :
+                addLabel = True
+                currentLabelName = info['labelname']
+
+            if currentLabelName != info['labelname'] :
+                addLabel = True
+                currentLabelName = info['labelname']
+
+            if horizontalStartPoint + crop.shape[1] >= horizontalRightLimit :
+                useNewRow = True
+                spacingMultiple = 1
+
+            if addLabel or useNewRow:
+                if addLabel :
+                    print('Adding label', currentLabelName)
+                    labelNameImage = getPillowText('Label = "{0}"'.format(currentLabelName))
+                    verticalStartPoint += rowHeight + verticalSpacing * spacingMultiple
+                    a = addImageAt(verticalStartPoint, horizontalSpacing, a, labelNameImage)
+                    verticalStartPoint += labelNameImage.shape[0] + verticalSpacing * spacingMultiple
+                    horizontalStartPoint = horizontalSpacing
+                    rowHeight = 0
+                else :
+                    # Continuation of an existing label on another line
+                    horizontalStartPoint = horizontalSpacing
+                    verticalStartPoint += rowHeight + verticalSpacing * spacingMultiple
+                    rowHeight = 0
+                    currentLabelName = info['labelname']
+
+            a = addImageAt(verticalStartPoint, horizontalStartPoint, a, crop)
+            print('Added ', crop.shape, verticalStartPoint, horizontalStartPoint)
+            rowHeight = max(rowHeight, crop.shape[0])
+            horizontalStartPoint += crop.shape[1] + horizontalSpacing
+
+        horizontalStartPoint = horizontalSpacing
+        verticalStartPoint += rowHeight + verticalSpacing
+
+    footer = np.full((verticalSpacing, a.shape[1], 3), 255, dtype='uint8')
+    a = addImageAt(verticalStartPoint, horizontalSpacing, a, footer)
+
 
     writeImageFile('output.jpg', a)
 
@@ -171,12 +242,15 @@ def addCV2Text(a, summary) :
 
     show('CV2Text', aText)
 
-def getPillowText(ain, summary) :
+def getPillowText(summary) :
 
     from PIL import Image, ImageDraw, ImageFont
 
-    font = ImageFont.truetype("cour.ttf", 20)
-    pilImage = Image.fromarray(ain.astype('uint8'), 'RGB')
+    font = ImageFont.truetype("cour.ttf", 25)
+
+    dummyArray = np.full((100, 100, 3), 255, dtype='uint8')
+
+    pilImage = Image.fromarray(dummyArray.astype('uint8'), 'RGB')
     draw = ImageDraw.Draw(pilImage, mode='RGBA')
 
     # Recreate the image as a Pillow image object from the numpy RGB image
@@ -201,7 +275,7 @@ def getPillowText(ain, summary) :
     if addRectangle :
         cv2.rectangle(npa, (0, 0, textwidth+2*gap, textheight+2*gap), color=(0,0,0), thickness=2 )
 
-    show('PillowText', npa)
+    #show('PillowText', npa)
 
     return npa
 
