@@ -19,7 +19,7 @@
 # The dimensions of the numpy array are:
 # - y axis, moving down from the top of the image to the bottom
 # - x axis, moving from the left side of the image to right
-# - colour, as three separate values, for R,G,B
+# - colour, as three separate values, for R,G,B (defaulting to white as a background)
 #
 # When using Pillow, these arrays have to be converted to a Pillow image object.
 # When using CV2, allowance needs to be made for CV2 treating the colour values as being BGR instead of RGB.
@@ -51,17 +51,17 @@ def writeImageArrayToFile(filename, imgArray) :
     mpimg.imsave(filename, imgArray, format='jpg')
     print('Image file saved: {0}'.format(filename))
 
-# CV2 version - not used
+# Alternative write-image-to-file function using CV2 - works, but not used
 def writeImageArrayToFileUsingCV2(filename, imgArray) :
 
     from cv2 import cv2
     cv2.imwrite(filename, convertToBGR(imgArray))
     print('Image file saved: {0}'.format(filename))
 
+
 # Diagnostics function, to see intermediate images during development. The Window remains open until you
 # press a key.
-
-def show(title, imgArray) :
+def showImage(title, imgArray) :
     """ Display an image in a CV2 window """
 
     # For CV2 we need to reverse the colour ordering of the array to BGR
@@ -72,49 +72,64 @@ def show(title, imgArray) :
 
 # #####################################################################################################
 
-def convertToBGR(imgArray) :
-    """ Converts a 3-D [y,x,RGB] numpy array to [y,x,BGR] format, for use with CV2 """
-    return imgArray[:,:,::-1]
-
-# #####################################################################################################
-
 def getSummaryText(imgFile, labelsResponse) :
+    """ Return multiline summary text about the image and the items in Rekognition's label response """
 
+    # The rt1 module has a function which produces the text we want, but prints it to stdout instead 
+    # of producing a string. So redirect stdout to a StringIO object while we call the rt1 function,
+    # and then create the string object from the StringIO object.
     from io import StringIO
 
-    temp_out = StringIO()
-    current_out = sys.stdout
-    sys.stdout = temp_out
+    tempStdOut = StringIO()
+    savedStdOut = sys.stdout
+    sys.stdout = tempStdOut
     rt1.dumpLabelInfo(imgFile, labelsResponse)
-    sys.stdout = current_out
-    return temp_out.getvalue()
+    sys.stdout = savedStdOut
+
+    return tempStdOut.getvalue()
 
 # #####################################################################################################
 
-def extendImage(a, newy, newx) :
-    newa = np.full((newy, newx,3), 255, dtype='uint8')
-    newa[0:a.shape[0],0:a.shape[1]] = a[:,:]
-    print('Extended array of shape {0} to a new array of shape {1}'.format(a.shape, newa.shape))
-    return newa
+# Functions doing direct image numpy array manipulation without using other libraries.
 
-def addImageAt(top, left, amain, a) :
-    print('Adding image of shape {0} to image of shape {1} at point ({2},{3})'.format(
-            a.shape, amain.shape, top, left))
-    # Check sizes and extend if necessary ?
-    if top + a.shape[0] > amain.shape[0] :
-        print('Need to extend down')
-        # Need to extend vertically
-        amain = extendImage(amain, top + a.shape[0], amain.shape[1])
-        print('New shape is {0}'.format(amain.shape))
+def newImageArray(y, x) :
+    """ Create a new image array of dimensions [y,x,RGB], set to all white """
+    return np.full((y,x,3), 255, dtype='uint8')
 
-    if left + a.shape[1] > amain.shape[1] :
-        print('Need to extend right')
-        # Need to extend horizontally
-        amain = extendImage(amain, amain.shape[0], left + a.shape[1])
-        print('New shape is {0}'.format(amain.shape))
+def extendImage(imgArray, newy, newx) :
+    """ Return a new (larger) image array of dimensions [newy, newx, RGB] containing the existing image at [0,0]. """
 
-    amain[top:top+a.shape[0],left:left+a.shape[1]] = a[:,:]
-    return amain
+    # Could check that the new image will be at least as large, otherwise the slice copy will fail ?
+    imgArrayNew = newImageArray(newy, newx)
+    imgArrayNew[0:imgArray.shape[0], 0:imgArray.shape[1]] = imgArray[:,:]
+    return imgArrayNew
+
+def addImageAt(imgArray, imgArrayToAdd, ytop, xleft) :
+    """ Returns an image formed by adding an image at the specified position to an existing image, 
+    extending it if necessary """
+
+    # print('Adding image of shape {0} to image of shape {1} at point ({2},{3})'.format(
+    #         imgArrayToAdd.shape, imgArray.shape, ytop, xleft))
+
+    ybottom = ytop + imgArrayToAdd.shape[0]
+    xright = xleft + imgArrayToAdd.shape[1]
+
+    # Check if placing the additional image at the specified position will go beyond the current 
+    # image's array boundary. If so, extend it, before copying in the additional image.    
+    if ybottom > imgArray.shape[0] :
+        imgArray = extendImage(imgArray, ybottom, imgArray.shape[1])
+        # print('Image array extended down - new shape is {0}'.format(imgArray.shape))
+
+    if xright > imgArray.shape[1] :
+        imgArray = extendImage(imgArray, imgArray.shape[0], xright)
+        # print('Image array extended right - new shape is {0}'.format(imgArray.shape))
+
+    imgArray[ytop:ybottom, xleft:xright] = imgArrayToAdd[:,:]
+    return imgArray
+
+def convertToBGR(imgArray) :
+    """ Converts a 3-D [y,x,RGB] numpy array to [y,x,BGR] format, (for use with CV2) """
+    return imgArray[:,:,::-1]
 
 # #####################################################################################################
 
@@ -145,41 +160,9 @@ def addConf(a, conf_s) :
     else :
         centreOffset = (a2.shape[1] - textArray.shape[1])//2
 
-    a2 = addImageAt(a2.shape[0], centreOffset, a2, textArray)
-    #show('conf', a2)
+    a2 = addImageAt(a2, textArray, a2.shape[0], centreOffset)
+    #showImage('conf', a2)
     return a2
-
-# #####################################################################################################
-
-def addCV2Text(a, summary) :
-    from cv2 import cv2
-    # Trial writing out text using with CV2 font - not very nice looking. And no fixed-width font.
-    # Pillow may work better.
-    font = cv2.FONT_HERSHEY_SIMPLEX
-    lineCount = 0
-    maxHeight = 0
-    maxWidth = 0
-    for line in enumerate(summary.split('\n')):
-        lineCount += 1
-        s = line[1]
-        (width, height), baseline = cv2.getTextSize(s, font, fontScale=1, thickness=2)
-        print(height, width, baseline, s)
-        maxHeight = max(maxHeight, height)
-        maxWidth = max(maxWidth, width)
-
-    aText = np.full(((maxHeight+20) * lineCount, maxWidth+20,3), 255, dtype='uint8')
-
-    print('Lines = ', lineCount)
-    print('Maxh, Maxw =', maxHeight, maxWidth)
-    print('Shape is', aText.shape)
-
-    for line in enumerate(summary.split('\n')):
-        i = line[0]
-        text_offset_x = 10
-        text_offset_y = i * (maxHeight+20)
-        cv2.putText(aText, line[1], (text_offset_x, text_offset_y), font, fontScale=1, thickness=1, color=(0, 0, 0))
-
-    show('CV2Text', aText)
 
 # #####################################################################################################
 
@@ -217,9 +200,41 @@ def getPillowText(summary) :
         from cv2 import cv2
         cv2.rectangle(npa, (0, 0, textwidth+2*gap, textheight+2*gap), color=(0,0,0), thickness=2 )
 
-    #show('PillowText', npa)
+    #showImage('PillowText', npa)
 
     return npa
+
+# #####################################################################################################
+
+def addCV2Text(a, summary) :
+    from cv2 import cv2
+    # Trial writing out text using with CV2 font - not very nice looking. And no fixed-width font.
+    # Pillow may work better.
+    font = cv2.FONT_HERSHEY_SIMPLEX
+    lineCount = 0
+    maxHeight = 0
+    maxWidth = 0
+    for line in enumerate(summary.split('\n')):
+        lineCount += 1
+        s = line[1]
+        (width, height), baseline = cv2.getTextSize(s, font, fontScale=1, thickness=2)
+        print(height, width, baseline, s)
+        maxHeight = max(maxHeight, height)
+        maxWidth = max(maxWidth, width)
+
+    aText = np.full(((maxHeight+20) * lineCount, maxWidth+20,3), 255, dtype='uint8')
+
+    print('Lines = ', lineCount)
+    print('Maxh, Maxw =', maxHeight, maxWidth)
+    print('Shape is', aText.shape)
+
+    for line in enumerate(summary.split('\n')):
+        i = line[0]
+        text_offset_x = 10
+        text_offset_y = i * (maxHeight+20)
+        cv2.putText(aText, line[1], (text_offset_x, text_offset_y), font, fontScale=1, thickness=1, color=(0, 0, 0))
+
+    showImage('CV2Text', aText)
 
 # #####################################################################################################
 
@@ -265,24 +280,24 @@ def main(argv) :
     verticalStartPoint = verticalSpacing
 
     # Add the image to the array
-    a = addImageAt(verticalStartPoint, horizontalSpacing, a, imgArray)
+    a = addImageAt(a, imgArray, verticalStartPoint, horizontalSpacing)
     verticalStartPoint += imgArray.shape[0] + verticalSpacing
 
-    #show(imgFile, a)
+    #showImage(imgFile, a)
 
     instancesInfo = rt1.extractInstancesInfo(imgArray, labelsResponse)
 
     textArray = getPillowText(summary)
-    a = addImageAt(verticalStartPoint, horizontalSpacing, a, textArray)
+    a = addImageAt( a, textArray, verticalStartPoint, horizontalSpacing)
     verticalStartPoint += textArray.shape[0] + verticalSpacing
 
     if len(instancesInfo) > 0 :
         imgWithRectangles = addRectanglesToImage(imgArray.copy(), instancesInfo)
-        a = addImageAt(verticalStartPoint, horizontalSpacing, a, imgWithRectangles)
+        a = addImageAt(a, imgWithRectangles, verticalStartPoint, horizontalSpacing)
         verticalStartPoint += imgWithRectangles.shape[0] + verticalSpacing
 
         footer = np.full((verticalSpacing, a.shape[1], 3), 255, dtype='uint8')
-        a = addImageAt(verticalStartPoint, horizontalSpacing, a, footer)
+        a = addImageAt(a, footer, verticalStartPoint, horizontalSpacing)
         verticalStartPoint += footer.shape[0]
 
         # Add a confidence number to each cropped image
@@ -319,7 +334,7 @@ def main(argv) :
                     print('Adding label', currentLabelName)
                     labelNameImage = getPillowText('Label = "{0}"'.format(currentLabelName))
                     verticalStartPoint += rowHeight + verticalSpacing * spacingMultiple
-                    a = addImageAt(verticalStartPoint, horizontalSpacing, a, labelNameImage)
+                    a = addImageAt(a, labelNameImage, verticalStartPoint, horizontalSpacing)
                     verticalStartPoint += labelNameImage.shape[0] + verticalSpacing * spacingMultiple
                     horizontalStartPoint = horizontalSpacing
                     rowHeight = 0
@@ -330,7 +345,7 @@ def main(argv) :
                     rowHeight = 0
                     currentLabelName = info['labelname']
 
-            a = addImageAt(verticalStartPoint, horizontalStartPoint, a, crop)
+            a = addImageAt(a, crop, verticalStartPoint, horizontalStartPoint)
             print('Added ', crop.shape, verticalStartPoint, horizontalStartPoint)
             rowHeight = max(rowHeight, crop.shape[0])
             horizontalStartPoint += crop.shape[1] + horizontalSpacing
@@ -339,7 +354,7 @@ def main(argv) :
         verticalStartPoint += rowHeight + verticalSpacing
 
     footer = np.full((verticalSpacing, a.shape[1], 3), 255, dtype='uint8')
-    a = addImageAt(verticalStartPoint, horizontalSpacing, a, footer)
+    a = addImageAt(a, footer, verticalStartPoint, horizontalSpacing)
 
 
     writeImageArrayToFile('output.jpg', a)
