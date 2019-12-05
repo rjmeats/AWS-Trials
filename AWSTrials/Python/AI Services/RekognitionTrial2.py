@@ -1,21 +1,82 @@
+# Program to display an image and the items identified within it by Amazon Rekognition, using
+# a single combined output file. The output file is itself an image showing:
+# - the original image
+# - a summary of the Rekognition results
+# - the original image with rectangles applied to it to highlight 'instances' (people, cars, ...)
+#   found by Rekognition
+# - and then the instance rectangles are displayed one-by-one, with a confidence score
+#
+# See the RekognitionTrial1 module for detailed Rekognition interaction.
+#
+# Image manipulation is performed using a combination of tools(!):
+# - Matplotlib, to read the original image into an RGB numpy array, and saving the final
+#   image to an output file 
+# - Pillow, to convert text strings to image form
+# - CV2 for drawing rectangles and displaying intermediate images
+# - and some direct numpy array manipulation (to copy images onto other images)
+#
+# Images within the program are held as 3-D numpy arrays.
+# The dimensions of the numpy array are:
+# - y axis, moving down from the top of the image to the bottom
+# - x axis, moving from the left side of the image to right
+# - colour, as three separate values, for R,G,B
+#
+# When using Pillow, these arrays have to be converted to a Pillow image object.
+# When using CV2, allowance needs to be made for CV2 treating the colour values as being BGR instead of RGB.
+
+# #####################################################################################################
+
 import sys
 import os
 
 import numpy as np
-from cv2 import cv2
 
 import RekognitionTrial1 as rt1
 
-def getImageArray(imgFile) :
+# #####################################################################################################
 
-    # Read in the image, with MatPlotLib providing a 3-D numpy array
-    # Dimensions of the numpy array are:
-    # - y axis, moving down from the top of the image to the bottom
-    # - x axis, moving from the left side of the image to right
-    # - colour, as three separate values, for R,G,B
+def readImageArrayFromFile(imgFile) :
+    """ Read the source image file into a 3-D numpy array [y,x,RGB] """
+
     import matplotlib.image as mpimg 
-    imageArray = mpimg.imread(imgFile) 
-    return imageArray
+    imgArray = mpimg.imread(imgFile)
+
+    # Matplotlib produces the numpy array in the correct format. No need to modify it.
+    return imgArray
+
+def writeImageArrayToFile(filename, imgArray) :
+    """ Write an image array out to a jpg file """
+
+    import matplotlib.image as mpimg 
+    mpimg.imsave(filename, imgArray, format='jpg')
+    print('Image file saved: {0}'.format(filename))
+
+# CV2 version - not used
+def writeImageArrayToFileUsingCV2(filename, imgArray) :
+
+    from cv2 import cv2
+    cv2.imwrite(filename, convertToBGR(imgArray))
+    print('Image file saved: {0}'.format(filename))
+
+# Diagnostics function, to see intermediate images during development. The Window remains open until you
+# press a key.
+
+def show(title, imgArray) :
+    """ Display an image in a CV2 window """
+
+    # For CV2 we need to reverse the colour ordering of the array to BGR
+    from cv2 import cv2
+    cv2.imshow(title, convertToBGR(imgArray.copy()))
+    cv2.waitKey(0)
+    cv2.destroyAllWindows()
+
+# #####################################################################################################
+
+def convertToBGR(imgArray) :
+    """ Converts a 3-D [y,x,RGB] numpy array to [y,x,BGR] format, for use with CV2 """
+    return imgArray[:,:,::-1]
+
+# #####################################################################################################
 
 def getSummaryText(imgFile, labelsResponse) :
 
@@ -28,33 +89,7 @@ def getSummaryText(imgFile, labelsResponse) :
     sys.stdout = current_out
     return temp_out.getvalue()
 
-def convertToBGR(a) :
-    return a[:,:,::-1]
-
-def show(imgFile, imgArray) :
-    #img2 = imgArray[:,:,::-1]
-    cv2.imshow(os.path.basename(imgFile), convertToBGR(imgArray))
-    cv2.waitKey(0)
-    cv2.destroyAllWindows()
-
-def addRectanglesToImage(img, instancesInfo) :
-    # Potential aLpha handling
-    # https://gist.github.com/IAmSuyogJadhav/305bfd9a0605a4c096383408bee7fd5c
-    # NB Using cv2 but array has RGB colouring
-    bgrcolorRed = (255, 0, 0)
-    bgrcolorGreen = (0, 255, 0)
-    #bgrcolorYellow = (0, 255, 255)
-
-    for info in instancesInfo :
-        boxc = bgrcolorGreen if info['labelname'] == 'Person' else bgrcolorRed
-        cv2.rectangle(img, (info['leftoffset'], info['topoffset'], info['width'], info['height']), color=boxc, thickness=2 )
-        #cv2.rectangle(img, (info['leftoffset']-1, info['topoffset']-1, info['width']+2, info['height']+2), color=bgrcolorYellow, thickness=1 )
-
-    return img
-
-def writeImageFile(filename, imgArray) :
-    cv2.imwrite(filename, convertToBGR(imgArray))
-    print('Image file saved:', filename)
+# #####################################################################################################
 
 def extendImage(a, newy, newx) :
     newa = np.full((newy, newx,3), 255, dtype='uint8')
@@ -81,6 +116,26 @@ def addImageAt(top, left, amain, a) :
     amain[top:top+a.shape[0],left:left+a.shape[1]] = a[:,:]
     return amain
 
+# #####################################################################################################
+
+def addRectanglesToImage(img, instancesInfo) :
+    from cv2 import cv2
+    # Potential aLpha handling
+    # https://gist.github.com/IAmSuyogJadhav/305bfd9a0605a4c096383408bee7fd5c
+    # NB Using cv2 but array has RGB colouring
+    bgrcolorRed = (255, 0, 0)
+    bgrcolorGreen = (0, 255, 0)
+    #bgrcolorYellow = (0, 255, 255)
+
+    for info in instancesInfo :
+        boxc = bgrcolorGreen if info['labelname'] == 'Person' else bgrcolorRed
+        cv2.rectangle(img, (info['leftoffset'], info['topoffset'], info['width'], info['height']), color=boxc, thickness=2 )
+        #cv2.rectangle(img, (info['leftoffset']-1, info['topoffset']-1, info['width']+2, info['height']+2), color=bgrcolorYellow, thickness=1 )
+
+    return img
+
+# #####################################################################################################
+
 def addConf(a, conf_s) :
     a2 = a.copy()
     textArray = getPillowText(conf_s)
@@ -93,6 +148,80 @@ def addConf(a, conf_s) :
     a2 = addImageAt(a2.shape[0], centreOffset, a2, textArray)
     #show('conf', a2)
     return a2
+
+# #####################################################################################################
+
+def addCV2Text(a, summary) :
+    from cv2 import cv2
+    # Trial writing out text using with CV2 font - not very nice looking. And no fixed-width font.
+    # Pillow may work better.
+    font = cv2.FONT_HERSHEY_SIMPLEX
+    lineCount = 0
+    maxHeight = 0
+    maxWidth = 0
+    for line in enumerate(summary.split('\n')):
+        lineCount += 1
+        s = line[1]
+        (width, height), baseline = cv2.getTextSize(s, font, fontScale=1, thickness=2)
+        print(height, width, baseline, s)
+        maxHeight = max(maxHeight, height)
+        maxWidth = max(maxWidth, width)
+
+    aText = np.full(((maxHeight+20) * lineCount, maxWidth+20,3), 255, dtype='uint8')
+
+    print('Lines = ', lineCount)
+    print('Maxh, Maxw =', maxHeight, maxWidth)
+    print('Shape is', aText.shape)
+
+    for line in enumerate(summary.split('\n')):
+        i = line[0]
+        text_offset_x = 10
+        text_offset_y = i * (maxHeight+20)
+        cv2.putText(aText, line[1], (text_offset_x, text_offset_y), font, fontScale=1, thickness=1, color=(0, 0, 0))
+
+    show('CV2Text', aText)
+
+# #####################################################################################################
+
+def getPillowText(summary) :
+
+    from PIL import Image, ImageDraw, ImageFont
+
+    font = ImageFont.truetype("cour.ttf", 25)
+
+    dummyArray = np.full((100, 100, 3), 255, dtype='uint8')
+
+    pilImage = Image.fromarray(dummyArray.astype('uint8'), 'RGB')
+    draw = ImageDraw.Draw(pilImage, mode='RGBA')
+
+    # Recreate the image as a Pillow image object from the numpy RGB image
+    (textwidth, textheight) = draw.multiline_textsize(summary, font=font, spacing=0, stroke_width=0)
+    print(textwidth, textheight)
+    gap = 10
+
+    a = np.full((textheight+2*gap,textwidth+2*gap,3), 255, dtype='uint8')
+
+    # For Windows, available fonts are in C:/Windows/Fonts - Pillow seems to access this automatically.
+    pilImage2 = Image.fromarray(a.astype('uint8'), 'RGB')
+    draw2 = ImageDraw.Draw(pilImage2, mode='RGBA')
+
+    top = gap
+    left = gap
+    xy_topleft = (left, top)
+    draw2.multiline_text(xy_topleft, summary, font=font, fill=(0,0,0), spacing=0, stroke_width=0)
+
+    npa = np.array(pilImage2)
+
+    addRectangle = False
+    if addRectangle :
+        from cv2 import cv2
+        cv2.rectangle(npa, (0, 0, textwidth+2*gap, textheight+2*gap), color=(0,0,0), thickness=2 )
+
+    #show('PillowText', npa)
+
+    return npa
+
+# #####################################################################################################
 
 def main(argv) :
 
@@ -108,6 +237,11 @@ def main(argv) :
         tool = 'MatPlotLib'
         print('No tool argument provided, using default : ', tool)
 
+    if not os.path.isfile(imgFile) :
+        print()
+        print('*** File {0} not found'.format(imgFile))
+        return
+
     # Process the image file
     labelsResponse = rt1.detectLabelsFromLocalFile(imgFile)
     summary = getSummaryText(imgFile, labelsResponse)
@@ -116,7 +250,7 @@ def main(argv) :
     print()
     rt1.dumpLabelInfo(imgFile, labelsResponse)
 
-    imgArray = getImageArray(imgFile)
+    imgArray = readImageArrayFromFile(imgFile)
     imgShape = imgArray.shape
 
     print()
@@ -208,77 +342,10 @@ def main(argv) :
     a = addImageAt(verticalStartPoint, horizontalSpacing, a, footer)
 
 
-    writeImageFile('output.jpg', a)
+    writeImageArrayToFile('output.jpg', a)
+    #writeImageArrayToFileUsingCV2('output2.jpg', a)
 
 # #####################################################################################################
 
-def addCV2Text(a, summary) :
-
-    # Trial writing out text using with CV2 font - not very nice looking. And no fixed-width font.
-    # Pillow may work better.
-    font = cv2.FONT_HERSHEY_SIMPLEX
-    lineCount = 0
-    maxHeight = 0
-    maxWidth = 0
-    for line in enumerate(summary.split('\n')):
-        lineCount += 1
-        s = line[1]
-        (width, height), baseline = cv2.getTextSize(s, font, fontScale=1, thickness=2)
-        print(height, width, baseline, s)
-        maxHeight = max(maxHeight, height)
-        maxWidth = max(maxWidth, width)
-
-    aText = np.full(((maxHeight+20) * lineCount, maxWidth+20,3), 255, dtype='uint8')
-
-    print('Lines = ', lineCount)
-    print('Maxh, Maxw =', maxHeight, maxWidth)
-    print('Shape is', aText.shape)
-
-    for line in enumerate(summary.split('\n')):
-        i = line[0]
-        text_offset_x = 10
-        text_offset_y = i * (maxHeight+20)
-        cv2.putText(aText, line[1], (text_offset_x, text_offset_y), font, fontScale=1, thickness=1, color=(0, 0, 0))
-
-    show('CV2Text', aText)
-
-def getPillowText(summary) :
-
-    from PIL import Image, ImageDraw, ImageFont
-
-    font = ImageFont.truetype("cour.ttf", 25)
-
-    dummyArray = np.full((100, 100, 3), 255, dtype='uint8')
-
-    pilImage = Image.fromarray(dummyArray.astype('uint8'), 'RGB')
-    draw = ImageDraw.Draw(pilImage, mode='RGBA')
-
-    # Recreate the image as a Pillow image object from the numpy RGB image
-    (textwidth, textheight) = draw.multiline_textsize(summary, font=font, spacing=0, stroke_width=0)
-    print(textwidth, textheight)
-    gap = 10
-
-    a = np.full((textheight+2*gap,textwidth+2*gap,3), 255, dtype='uint8')
-
-    # For Windows, available fonts are in C:/Windows/Fonts - Pillow seems to access this automatically.
-    pilImage2 = Image.fromarray(a.astype('uint8'), 'RGB')
-    draw2 = ImageDraw.Draw(pilImage2, mode='RGBA')
-
-    top = gap
-    left = gap
-    xy_topleft = (left, top)
-    draw2.multiline_text(xy_topleft, summary, font=font, fill=(0,0,0), spacing=0, stroke_width=0)
-
-    npa = np.array(pilImage2)
-
-    addRectangle = False
-    if addRectangle :
-        cv2.rectangle(npa, (0, 0, textwidth+2*gap, textheight+2*gap), color=(0,0,0), thickness=2 )
-
-    #show('PillowText', npa)
-
-    return npa
-
 if __name__ == '__main__' :    
     main(sys.argv)
-
