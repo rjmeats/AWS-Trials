@@ -133,9 +133,9 @@ def convertToBGR(imgArray) :
 
 # #####################################################################################################
 
-def addRectangleToImage(imgArray, instanceInfo, RGBColourMap) :
-    """ Use 'instance info' obtained from Rekognition to draw a rectangle in the specified colour around 
-        the labelled instance located in the main image. """
+def addRectanglesToImage(imgArray, instanceInfo, RGBColourMap) :
+    """ Use 'instance info' obtained from Rekognition to draw rectangles in the specified colour around 
+        the labelled instances located in the main image. """
 
     # Use CV2 for this. NB We specify colours as RGB, as that is what we're using for the array. But if we
     # ever used CV2's colours, they would be BGR and so need reversing to match the rest of the array.
@@ -145,9 +145,10 @@ def addRectangleToImage(imgArray, instanceInfo, RGBColourMap) :
     # https://gist.github.com/IAmSuyogJadhav/305bfd9a0605a4c096383408bee7fd5c
 
     RGBColourWhite = (255, 255, 255)
+    unknownLabelColour = RGBColourMap.get('Unknown', RGBColourWhite)
 
     for info in instanceInfo :        
-        RGBColour = RGBColourMap.get(info['labelname'], RGBColourWhite)
+        RGBColour = RGBColourMap.get(info['labelname'], unknownLabelColour)
         cv2.rectangle(imgArray, (info['leftoffset'], info['topoffset'], info['width'], info['height']), color=RGBColour, thickness=2 )
 
     return imgArray
@@ -199,7 +200,7 @@ def getTextAsImageArray(text, fontFile="cour.ttf", fontPointSize=25, ymargin=10,
     npa = np.array(pilImage)
 
     # Diagnostics to draw a back rectangle around the text, to aid in locating it in a finished image.
-    addRectangle = False
+    addRectangle = True
     if addRectangle :
         from cv2 import cv2
         cv2.rectangle(npa, (0, 0, textWidth+2*xmargin, textHeight+2*ymargin), color=black, thickness=2 )
@@ -275,60 +276,88 @@ def addConfidenceScore(imgArraySource, confidenceText) :
 
 # #####################################################################################################
 
-def performImageExtraction(imgFile) :
+def performLabelExtraction(imgFile) :
     """ Invoke Rekognition on the image, return the response info and a text summary """
 
     # Use functions in the rt1 module to interact with Rekognition (including accessing local cache of
     # results if available.)
     labelsResponse = rt1.detectLabelsFromLocalFile(imgFile)
-    summaryText = getSummaryText(imgFile, labelsResponse)
+    summaryText = getSummaryText(imgFile, labelsResponse) 
+    summaryText = summaryText.rstrip()  # Remove trailing whitespace, especially newlines
     return labelsResponse, summaryText
 
 # #####################################################################################################
 
-def produceOutputImage(imgFile, labelsResponse, summaryText) :
+def produceOutputImage(imgFile, labelsResponse, summaryText, outputFileName) :
+    """ Does all the processing of the source image and Rekognition label data to produce the output image """
 
-    imgArray = readImageArrayFromFile(imgFile)
-    imgShape = imgArray.shape
+    # Get the image we're processing into a 3-D numpy array [y,x,RGB]
+    imgSourceArray = readImageArrayFromFile(imgFile)
+    sourceShape = imgSourceArray.shape
 
     # print()
-    # print('Image array type is {0}, shape is {1}'.format(type(imgArray), imgArray.shape))
+    # print('Image array type is {0}, shape is {1}'.format(type(imgSourceArray), sourceShape))
 
-    verticalSpacing = 50
-    horizontalSpacing = 200
+    # Set up an all-white image array to use as a vertical spacing element at various points
+    horizontalMargin = 100
+    verticalMargin = 50
+    verticalSpacingArray = newImageArray(verticalMargin, sourceShape[1]+2*horizontalMargin)
 
-    a = np.full((imgShape[0] + verticalSpacing*2, imgShape[1] + horizontalSpacing*2, 3), 255, dtype='uint8')
-    print("1:", a.shape)
+    # Use the 'imgTargetArray' variable to reference the array for output image being built up.
 
-    verticalStartPoint = verticalSpacing
+    # Start by putting a margin at the top
+    imgTargetArray = verticalSpacingArray.copy()      
 
-    # Add the image to the array
-    a = addImageAt(a, imgArray, verticalStartPoint, horizontalSpacing)
-    verticalStartPoint += imgArray.shape[0] + verticalSpacing
+    # Add the source image, and a vertical spacing element
+    imgTargetArray = addImageAt(imgTargetArray, imgSourceArray, imgTargetArray.shape[0], horizontalMargin)
+    imgTargetArray = addImageAt(imgTargetArray, verticalSpacingArray, imgTargetArray.shape[0], 0)
 
-    #showImage(imgFile, a)
+    # showImage(imgFile, imgTargetArray)
 
-    instancesInfo = rt1.extractInstancesInfo(imgArray, labelsResponse)
+    # Now move onto the Rekognition data
+    # Reformat the data a little
+    instancesInfo = rt1.extractInstancesInfo(imgSourceArray, labelsResponse)
 
-    textArray = getTextAsImageArray(summaryText)
-    a = addImageAt( a, textArray, verticalStartPoint, horizontalSpacing)
-    verticalStartPoint += textArray.shape[0] + verticalSpacing
+    # Put the multi-line text summarising the Rekognition labels detected into image form.
+    textArray = getTextAsImageArray(summaryText)    
 
-    RGBColourGreen = (0, 255, 0)
-    RGBColourYellow = (255, 255, 0)
-    RGBColourMap = {
-        'Person'    : RGBColourGreen,
-        'Car'       : RGBColourYellow
-    }
+    # Add whitespace margin to the right of the text array if it is wider than the main image.
+    if textArray.shape[1] > sourceShape[1] :
+        textArray = extendImage(textArray, textArray.shape[0], textArray.shape[1] + horizontalMargin)
+
+    # Add the image-ised text to the bottom for the output image, and a vertical spacing element
+    imgTargetArray = addImageAt(imgTargetArray, textArray, imgTargetArray.shape[0], horizontalMargin)
+    imgTargetArray = addImageAt(imgTargetArray, verticalSpacingArray, imgTargetArray.shape[0], 0)
+
+    # showImage(imgFile, imgTargetArray)
+
+    # If Rekognition detected any labelled items in the source image, add another copy of the source image, 
+    # this time with coloured rectangles drawn on it to show where the labelled items are.
+    if len(instancesInfo) > 0 :
+
+        # Define a map of label type to rectangle colour
+        RGBColourGreen = (0,255,0)
+        RGBColourYellow = (255,255,0)
+        RGBColourWhite = (255,255,255)
+        RGBColourMap = {
+            'Person'    : RGBColourGreen,
+            'Car'       : RGBColourYellow,
+            'Unknown'   : RGBColourWhite
+        }
+
+        imgWithRectangles = addRectanglesToImage(imgSourceArray.copy(), instancesInfo, RGBColourMap)
+        imgTargetArray = addImageAt(imgTargetArray, imgWithRectangles, imgTargetArray.shape[0], horizontalMargin)
+        imgTargetArray = addImageAt(imgTargetArray, verticalSpacingArray, imgTargetArray.shape[0], 0)
+
+    # And now add the individual extracted images (showing confidence values) in rows at the end ...
+
+    # .. rework the code below after 'return'
+
+    writeImageArrayToFile(outputFileName, imgTargetArray)
+
+    return
 
     if len(instancesInfo) > 0 :
-        imgWithRectangles = addRectangleToImage(imgArray.copy(), instancesInfo, RGBColourMap)
-        a = addImageAt(a, imgWithRectangles, verticalStartPoint, horizontalSpacing)
-        verticalStartPoint += imgWithRectangles.shape[0] + verticalSpacing
-
-        footer = np.full((verticalSpacing, a.shape[1], 3), 255, dtype='uint8')
-        a = addImageAt(a, footer, verticalStartPoint, horizontalSpacing)
-        verticalStartPoint += footer.shape[0]
 
         # Add a confidence number to each cropped image
         for info in instancesInfo :
@@ -386,7 +415,7 @@ def produceOutputImage(imgFile, labelsResponse, summaryText) :
     footer = np.full((verticalSpacing, a.shape[1], 3), 255, dtype='uint8')
     a = addImageAt(a, footer, verticalStartPoint, horizontalSpacing)
 
-    writeImageArrayToFile('output.jpg', a)
+    writeImageArrayToFile(outputFileName, a)
 
 # #####################################################################################################
 
@@ -403,13 +432,19 @@ def main(argv) :
         print('*** File {0} not found'.format(imgFile))
         return
 
-    (labelsResponse, summaryText) = performImageExtraction(imgFile)
+    if len(argv) > 2 :
+        outputFileName = argv[2]
+    else :
+        outputFileName = 'output.jpg'
+        print('No output file provided, using default : ', outputFileName)
+
+    (labelsResponse, summaryText) = performLabelExtraction(imgFile)
 
     print()
     print(summaryText)
     print()
 
-    produceOutputImage(imgFile, labelsResponse, summaryText)
+    produceOutputImage(imgFile, labelsResponse, summaryText, outputFileName)
 
 # #####################################################################################################
 
