@@ -351,6 +351,13 @@ def produceOutputImage(imgFile, labelsResponse, summaryText, outputFileName) :
 
     # And now add the individual extracted images (showing confidence values) in rows at the end ...
 
+    if len(instancesInfo) > 0 :
+
+        # Add the confidence score below each cropped image, creating a set of slightly larger cropped
+        # images.
+        for info in instancesInfo :
+            info['crop+conf'] = addConfidenceScore(info['crop'], info['conf_s'])
+
     # .. rework the code below after 'return'
 
     writeImageArrayToFile(outputFileName, imgTargetArray)
@@ -358,10 +365,6 @@ def produceOutputImage(imgFile, labelsResponse, summaryText, outputFileName) :
     return
 
     if len(instancesInfo) > 0 :
-
-        # Add a confidence number to each cropped image
-        for info in instancesInfo :
-            info['crop+conf'] = addConfidenceScore(info['crop'], info['conf_s'])
 
         # Add extracted images. Initially put each on a separate row, stop when out of room.
         # Should add some text to show label and confidence.
