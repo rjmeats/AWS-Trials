@@ -133,27 +133,129 @@ def convertToBGR(imgArray) :
 
 # #####################################################################################################
 
-def addRectanglesToImage(img, instancesInfo) :
+def addRectangleToImage(imgArray, instanceInfo, RGBColourMap) :
+    """ Use 'instance info' obtained from Rekognition to draw a rectangle in the specified colour around 
+        the labelled instance located in the main image. """
+
+    # Use CV2 for this. NB We specify colours as RGB, as that is what we're using for the array. But if we
+    # ever used CV2's colours, they would be BGR and so need reversing to match the rest of the array.
     from cv2 import cv2
-    # Potential aLpha handling
+
+    # Potential CV2 aLpha handling if ever required
     # https://gist.github.com/IAmSuyogJadhav/305bfd9a0605a4c096383408bee7fd5c
-    # NB Using cv2 but array has RGB colouring
-    bgrcolorRed = (255, 0, 0)
-    bgrcolorGreen = (0, 255, 0)
-    #bgrcolorYellow = (0, 255, 255)
 
-    for info in instancesInfo :
-        boxc = bgrcolorGreen if info['labelname'] == 'Person' else bgrcolorRed
-        cv2.rectangle(img, (info['leftoffset'], info['topoffset'], info['width'], info['height']), color=boxc, thickness=2 )
-        #cv2.rectangle(img, (info['leftoffset']-1, info['topoffset']-1, info['width']+2, info['height']+2), color=bgrcolorYellow, thickness=1 )
+    RGBColourWhite = (255, 255, 255)
 
-    return img
+    for info in instanceInfo :        
+        RGBColour = RGBColourMap.get(info['labelname'], RGBColourWhite)
+        cv2.rectangle(imgArray, (info['leftoffset'], info['topoffset'], info['width'], info['height']), color=RGBColour, thickness=2 )
+
+    return imgArray
+
+# #####################################################################################################
+
+def getTextAsImageArray(text, fontFile="cour.ttf", fontPointSize=25) :
+    """ Return a 3-D [y,x,RGB] numpy image array which displays the specified text, black text on white.
+
+        - this uses Pillow
+        - on Windows, the available font file names are in C:/Windows/Fonts
+    """
+
+    # Do this in stages:
+    # - get Pillow to tell us how big the image will need to be
+    # - create an image array large enough
+    # - get Pillow to write the text to the new image array.
+
+    # https://pillow.readthedocs.io/en/stable/reference/ImageDraw.html
+    from PIL import Image, ImageDraw, ImageFont
+
+    font = ImageFont.truetype(fontFile, fontPointSize)
+
+    # We need a Pillow 'Draw' object to perform text operations with. To determine the size, 
+    # we still need to give it an 'image' to work with - use a dummy one.
+    dummyImageArray = newImageArray(100,100)
+    pilImage = Image.fromarray(dummyImageArray.astype('uint8'), 'RGB')
+    draw = ImageDraw.Draw(pilImage, mode='RGBA')
+
+    spacing = 2         # Number of pixels between lines
+    strokeWidth = 0     # Thinnest line for writing the text
+
+    # Get the size info from Pillow
+    (textWidth, textHeight) = draw.multiline_textsize(text, font=font, spacing=spacing, stroke_width=strokeWidth)
+
+    # Create a new image array large enough to hold the text, with a small gap on each side.
+    gap = 10    # Pixels
+    textImageArray = newImageArray(textHeight+2*gap, textWidth+2*gap)
+
+    # And set up another Pillow 'Draw' object, this time using the real target array.
+    pilImage = Image.fromarray(textImageArray.astype('uint8'), 'RGB')
+    draw = ImageDraw.Draw(pilImage, mode='RGBA')
+
+    # And draw the rectangle into the image array, allowing for the small gap on each side.
+    xy_topleft = (gap, gap)
+    black = (0,0,0)
+    draw.multiline_text(xy_topleft, text, font=font, fill=black, spacing=spacing, stroke_width=strokeWidth)
+
+    # Generate a numpy 3-D array from image, as the object we return
+    npa = np.array(pilImage)
+
+    # Diagnostics to draw a back rectangle around the text, to aid in locating it in a finished image.
+    addRectangle = False
+    if addRectangle :
+        from cv2 import cv2
+        cv2.rectangle(npa, (0, 0, textWidth+2*gap, textHeight+2*gap), color=black, thickness=2 )
+
+    # Diagnostic display of the image - NB this function gets called multiple times per run if there
+    # are items detected by Rekognition.
+    # showImage('PillowText', npa)   
+
+    return npa
+
+# #####################################################################################################
+
+# Trial writing out text to an image using CV2 - not very nice looking. And no fixed-width font.
+# Pillow works better, and also handles multi-line text itself.
+# So the function below is not used, and not fully developed.
+
+def addCV2Text(text) :
+    from cv2 import cv2
+
+    font = cv2.FONT_HERSHEY_SIMPLEX
+
+    # Work out how big we will need to make an array to display the text, line by line.
+    lineCount = 0
+    maxHeight = 0
+    maxWidth = 0
+    for line in enumerate(text.split('\n')):
+        lineCount += 1
+        s = line[1]
+        (width, height), baseline = cv2.getTextSize(s, font, fontScale=1, thickness=2)
+        print(height, width, baseline, s)
+        maxHeight = max(maxHeight, height)
+        maxWidth = max(maxWidth, width)
+
+    textImgArray = newImageArray((maxHeight+20) * lineCount, maxWidth+20)
+
+    print('Lines = ', lineCount)
+    print('Maxh, Maxw =', maxHeight, maxWidth)
+    print('Shape is', textImgArray.shape)
+
+    # Line-by-line add the text to the array
+    for line in enumerate(text.split('\n')):        # line is compound: (line-number, text)
+        i = line[0]
+        text_offset_x = 10
+        text_offset_y = i * (maxHeight+20)
+        cv2.putText(textImgArray, line[1], (text_offset_x, text_offset_y), font, fontScale=1, thickness=1, color=(0, 0, 0))
+
+    showImage('CV2Text', textImgArray)
+
+    return textImgArray
 
 # #####################################################################################################
 
 def addConf(a, conf_s) :
     a2 = a.copy()
-    textArray = getPillowText(conf_s)
+    textArray = getTextAsImageArray(conf_s, fontPointSize=15)
     print('Adding conf to {0} {1} - {2}'.format(a2.shape, conf_s, textArray.shape))
     if textArray.shape[1] >= a2.shape[1] :
         centreOffset = 0
@@ -163,78 +265,6 @@ def addConf(a, conf_s) :
     a2 = addImageAt(a2, textArray, a2.shape[0], centreOffset)
     #showImage('conf', a2)
     return a2
-
-# #####################################################################################################
-
-def getPillowText(summary) :
-
-    from PIL import Image, ImageDraw, ImageFont
-
-    font = ImageFont.truetype("cour.ttf", 25)
-
-    dummyArray = np.full((100, 100, 3), 255, dtype='uint8')
-
-    pilImage = Image.fromarray(dummyArray.astype('uint8'), 'RGB')
-    draw = ImageDraw.Draw(pilImage, mode='RGBA')
-
-    # Recreate the image as a Pillow image object from the numpy RGB image
-    (textwidth, textheight) = draw.multiline_textsize(summary, font=font, spacing=0, stroke_width=0)
-    print(textwidth, textheight)
-    gap = 10
-
-    a = np.full((textheight+2*gap,textwidth+2*gap,3), 255, dtype='uint8')
-
-    # For Windows, available fonts are in C:/Windows/Fonts - Pillow seems to access this automatically.
-    pilImage2 = Image.fromarray(a.astype('uint8'), 'RGB')
-    draw2 = ImageDraw.Draw(pilImage2, mode='RGBA')
-
-    top = gap
-    left = gap
-    xy_topleft = (left, top)
-    draw2.multiline_text(xy_topleft, summary, font=font, fill=(0,0,0), spacing=0, stroke_width=0)
-
-    npa = np.array(pilImage2)
-
-    addRectangle = False
-    if addRectangle :
-        from cv2 import cv2
-        cv2.rectangle(npa, (0, 0, textwidth+2*gap, textheight+2*gap), color=(0,0,0), thickness=2 )
-
-    #showImage('PillowText', npa)
-
-    return npa
-
-# #####################################################################################################
-
-def addCV2Text(a, summary) :
-    from cv2 import cv2
-    # Trial writing out text using with CV2 font - not very nice looking. And no fixed-width font.
-    # Pillow may work better.
-    font = cv2.FONT_HERSHEY_SIMPLEX
-    lineCount = 0
-    maxHeight = 0
-    maxWidth = 0
-    for line in enumerate(summary.split('\n')):
-        lineCount += 1
-        s = line[1]
-        (width, height), baseline = cv2.getTextSize(s, font, fontScale=1, thickness=2)
-        print(height, width, baseline, s)
-        maxHeight = max(maxHeight, height)
-        maxWidth = max(maxWidth, width)
-
-    aText = np.full(((maxHeight+20) * lineCount, maxWidth+20,3), 255, dtype='uint8')
-
-    print('Lines = ', lineCount)
-    print('Maxh, Maxw =', maxHeight, maxWidth)
-    print('Shape is', aText.shape)
-
-    for line in enumerate(summary.split('\n')):
-        i = line[0]
-        text_offset_x = 10
-        text_offset_y = i * (maxHeight+20)
-        cv2.putText(aText, line[1], (text_offset_x, text_offset_y), font, fontScale=1, thickness=1, color=(0, 0, 0))
-
-    showImage('CV2Text', aText)
 
 # #####################################################################################################
 
@@ -287,12 +317,22 @@ def main(argv) :
 
     instancesInfo = rt1.extractInstancesInfo(imgArray, labelsResponse)
 
-    textArray = getPillowText(summary)
+    textArray = getTextAsImageArray(summary)
     a = addImageAt( a, textArray, verticalStartPoint, horizontalSpacing)
     verticalStartPoint += textArray.shape[0] + verticalSpacing
 
+    addCV2Text(summary)
+
+
+    RGBColourGreen = (0, 255, 0)
+    RGBColourYellow = (255, 255, 0)
+    RGBColourMap = {
+        'Person'    : RGBColourGreen,
+        'Car'       : RGBColourYellow
+    }
+
     if len(instancesInfo) > 0 :
-        imgWithRectangles = addRectanglesToImage(imgArray.copy(), instancesInfo)
+        imgWithRectangles = addRectangleToImage(imgArray.copy(), instancesInfo, RGBColourMap)
         a = addImageAt(a, imgWithRectangles, verticalStartPoint, horizontalSpacing)
         verticalStartPoint += imgWithRectangles.shape[0] + verticalSpacing
 
@@ -332,7 +372,7 @@ def main(argv) :
             if addLabel or useNewRow:
                 if addLabel :
                     print('Adding label', currentLabelName)
-                    labelNameImage = getPillowText('Label = "{0}"'.format(currentLabelName))
+                    labelNameImage = getTextAsImageArray('Label = "{0}"'.format(currentLabelName))
                     verticalStartPoint += rowHeight + verticalSpacing * spacingMultiple
                     a = addImageAt(a, labelNameImage, verticalStartPoint, horizontalSpacing)
                     verticalStartPoint += labelNameImage.shape[0] + verticalSpacing * spacingMultiple
