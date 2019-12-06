@@ -154,7 +154,7 @@ def addRectangleToImage(imgArray, instanceInfo, RGBColourMap) :
 
 # #####################################################################################################
 
-def getTextAsImageArray(text, fontFile="cour.ttf", fontPointSize=25) :
+def getTextAsImageArray(text, fontFile="cour.ttf", fontPointSize=25, ymargin=10, xmargin=10) :
     """ Return a 3-D [y,x,RGB] numpy image array which displays the specified text, black text on white.
 
         - this uses Pillow
@@ -183,16 +183,15 @@ def getTextAsImageArray(text, fontFile="cour.ttf", fontPointSize=25) :
     # Get the size info from Pillow
     (textWidth, textHeight) = draw.multiline_textsize(text, font=font, spacing=spacing, stroke_width=strokeWidth)
 
-    # Create a new image array large enough to hold the text, with a small gap on each side.
-    gap = 10    # Pixels
-    textImageArray = newImageArray(textHeight+2*gap, textWidth+2*gap)
+    # Create a new image array large enough to hold the text, with a small margin on each side.
+    textImageArray = newImageArray(textHeight+2*ymargin, textWidth+2*xmargin)
 
     # And set up another Pillow 'Draw' object, this time using the real target array.
     pilImage = Image.fromarray(textImageArray.astype('uint8'), 'RGB')
     draw = ImageDraw.Draw(pilImage, mode='RGBA')
 
     # And draw the rectangle into the image array, allowing for the small gap on each side.
-    xy_topleft = (gap, gap)
+    xy_topleft = (xmargin, ymargin)
     black = (0,0,0)
     draw.multiline_text(xy_topleft, text, font=font, fill=black, spacing=spacing, stroke_width=strokeWidth)
 
@@ -203,7 +202,7 @@ def getTextAsImageArray(text, fontFile="cour.ttf", fontPointSize=25) :
     addRectangle = False
     if addRectangle :
         from cv2 import cv2
-        cv2.rectangle(npa, (0, 0, textWidth+2*gap, textHeight+2*gap), color=black, thickness=2 )
+        cv2.rectangle(npa, (0, 0, textWidth+2*xmargin, textHeight+2*ymargin), color=black, thickness=2 )
 
     # Diagnostic display of the image - NB this function gets called multiple times per run if there
     # are items detected by Rekognition.
@@ -253,53 +252,47 @@ def addCV2Text(text) :
 
 # #####################################################################################################
 
-def addConf(a, conf_s) :
-    a2 = a.copy()
-    textArray = getTextAsImageArray(conf_s, fontPointSize=15)
-    print('Adding conf to {0} {1} - {2}'.format(a2.shape, conf_s, textArray.shape))
-    if textArray.shape[1] >= a2.shape[1] :
-        centreOffset = 0
-    else :
-        centreOffset = (a2.shape[1] - textArray.shape[1])//2
+def addConfidenceScore(imgArraySource, confidenceText) :
+    """ Add text in a bar added to the bottom of an image to show the confidence score and return 
+        the new image. """
 
-    a2 = addImageAt(a2, textArray, a2.shape[0], centreOffset)
-    #showImage('conf', a2)
-    return a2
+    # Work on a copy the original image.
+    imgArray = imgArraySource.copy()
+
+    # Generate an image containing the confidence text.
+    textArray = getTextAsImageArray(confidenceText, fontPointSize=20, xmargin=0)
+    # print('Adding conf to {0} {1} - {2}'.format(imgArray.shape, confidenceText, textArray.shape))
+
+    # Add the text array at the bottom of the image, centred if the text array width is 
+    # smaller than the width of the image.
+    if textArray.shape[1] < imgArray.shape[1] :
+        leftOffset = (imgArray.shape[1] - textArray.shape[1]) // 2
+    else :
+        leftOffset = 0
+    imgArray = addImageAt(imgArray, textArray, imgArray.shape[0], leftOffset)
+
+    return imgArray
 
 # #####################################################################################################
 
-def main(argv) :
+def performImageExtraction(imgFile) :
+    """ Invoke Rekognition on the image, return the response info and a text summary """
 
-    if len(argv) > 1 and argv[1] != '-' :
-        imgFile = argv[1]
-    else :
-        imgFile = 'AI Services/woodbridge.jpg'
-        print('No image file argument provided, using default : ', imgFile)
-
-    if len(argv) > 2 :
-        tool = argv[2]
-    else :
-        tool = 'MatPlotLib'
-        print('No tool argument provided, using default : ', tool)
-
-    if not os.path.isfile(imgFile) :
-        print()
-        print('*** File {0} not found'.format(imgFile))
-        return
-
-    # Process the image file
+    # Use functions in the rt1 module to interact with Rekognition (including accessing local cache of
+    # results if available.)
     labelsResponse = rt1.detectLabelsFromLocalFile(imgFile)
-    summary = getSummaryText(imgFile, labelsResponse)
-    print()
-    print(summary)
-    print()
-    rt1.dumpLabelInfo(imgFile, labelsResponse)
+    summaryText = getSummaryText(imgFile, labelsResponse)
+    return labelsResponse, summaryText
+
+# #####################################################################################################
+
+def produceOutputImage(imgFile, labelsResponse, summaryText) :
 
     imgArray = readImageArrayFromFile(imgFile)
     imgShape = imgArray.shape
 
-    print()
-    print('Image array type is {0}, shape is {1}'.format(type(imgArray), imgArray.shape))
+    # print()
+    # print('Image array type is {0}, shape is {1}'.format(type(imgArray), imgArray.shape))
 
     verticalSpacing = 50
     horizontalSpacing = 200
@@ -317,12 +310,9 @@ def main(argv) :
 
     instancesInfo = rt1.extractInstancesInfo(imgArray, labelsResponse)
 
-    textArray = getTextAsImageArray(summary)
+    textArray = getTextAsImageArray(summaryText)
     a = addImageAt( a, textArray, verticalStartPoint, horizontalSpacing)
     verticalStartPoint += textArray.shape[0] + verticalSpacing
-
-    addCV2Text(summary)
-
 
     RGBColourGreen = (0, 255, 0)
     RGBColourYellow = (255, 255, 0)
@@ -342,7 +332,7 @@ def main(argv) :
 
         # Add a confidence number to each cropped image
         for info in instancesInfo :
-            info['crop+conf'] = addConf(info['crop'], info['conf_s'])
+            info['crop+conf'] = addConfidenceScore(info['crop'], info['conf_s'])
 
         # Add extracted images. Initially put each on a separate row, stop when out of room.
         # Should add some text to show label and confidence.
@@ -396,9 +386,30 @@ def main(argv) :
     footer = np.full((verticalSpacing, a.shape[1], 3), 255, dtype='uint8')
     a = addImageAt(a, footer, verticalStartPoint, horizontalSpacing)
 
-
     writeImageArrayToFile('output.jpg', a)
-    #writeImageArrayToFileUsingCV2('output2.jpg', a)
+
+# #####################################################################################################
+
+def main(argv) :
+
+    if len(argv) > 1 and argv[1] != '-' :
+        imgFile = argv[1]
+    else :
+        imgFile = 'AI Services/woodbridge.jpg'
+        print('No image file argument provided, using default : ', imgFile)
+
+    if not os.path.isfile(imgFile) :
+        print()
+        print('*** File {0} not found'.format(imgFile))
+        return
+
+    (labelsResponse, summaryText) = performImageExtraction(imgFile)
+
+    print()
+    print(summaryText)
+    print()
+
+    produceOutputImage(imgFile, labelsResponse, summaryText)
 
 # #####################################################################################################
 
