@@ -288,6 +288,18 @@ def performLabelExtraction(imgFile) :
 
 # #####################################################################################################
 
+# Define a mapping between Rekognition label types and the colour of rectangle we draw around the item.
+RGBColourGreen = (0,255,0)
+RGBColourYellow = (255,255,0)
+RGBColourWhite = (255,255,255)
+RGBColourMap = {
+    'Person'    : RGBColourGreen,
+    'Car'       : RGBColourYellow,
+    'Unknown'   : RGBColourWhite
+}
+
+# #####################################################################################################
+
 def produceOutputImage(imgFile, labelsResponse, summaryText, outputFileName) :
     """ Does all the processing of the source image and Rekognition label data to produce the output image """
 
@@ -334,32 +346,32 @@ def produceOutputImage(imgFile, labelsResponse, summaryText, outputFileName) :
     # If Rekognition detected any labelled items in the source image, add another copy of the source image, 
     # this time with coloured rectangles drawn on it to show where the labelled items are.
     if len(instancesInfo) > 0 :
-
-        # Define a map of label type to rectangle colour
-        RGBColourGreen = (0,255,0)
-        RGBColourYellow = (255,255,0)
-        RGBColourWhite = (255,255,255)
-        RGBColourMap = {
-            'Person'    : RGBColourGreen,
-            'Car'       : RGBColourYellow,
-            'Unknown'   : RGBColourWhite
-        }
-
         imgWithRectangles = addRectanglesToImage(imgSourceArray.copy(), instancesInfo, RGBColourMap)
         imgTargetArray = addImageAt(imgTargetArray, imgWithRectangles, imgTargetArray.shape[0], horizontalMargin)
-        imgTargetArray = addImageAt(imgTargetArray, verticalSpacingArray, imgTargetArray.shape[0], 0)
 
-    # And now add the individual extracted images (showing confidence values) in rows at the end ...
+    # And now add the individual extracted images (showing confidence values) in rows by label type ...
 
     if len(instancesInfo) > 0 :
 
-        # Add the confidence score below each cropped image, creating a set of slightly larger cropped
-        # images.
+        # Add confidence score text below each cropped image
         for info in instancesInfo :
             info['crop+conf'] = addConfidenceScore(info['crop'], info['conf_s'])
 
+        # Go through each distinct label type in turn
+        labelNames = set(info['labelname'] for info in instancesInfo)
+        for labelName in labelNames :
+            imgTargetArray = addImageAt(imgTargetArray, verticalSpacingArray, imgTargetArray.shape[0], 0)
+            imgLabelName = getTextAsImageArray('Label = "{0}"'.format(labelName))
+            imgTargetArray = addImageAt(imgTargetArray, imgLabelName, imgTargetArray.shape[0], horizontalMargin)
+            
+            # add label heading, then spacing
+            # add items in one or more rows + spacing between them
+
+
+
     # .. rework the code below after 'return'
 
+    imgTargetArray = addImageAt(imgTargetArray, verticalSpacingArray, imgTargetArray.shape[0], 0)
     writeImageArrayToFile(outputFileName, imgTargetArray)
 
     return
