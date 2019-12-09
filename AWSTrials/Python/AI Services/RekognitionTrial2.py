@@ -253,6 +253,18 @@ def addCV2Text(text) :
 
 # #####################################################################################################
 
+# Define a mapping between Rekognition label types and the colour of rectangle we draw around the item.
+RGBColourGreen = (0,255,0)
+RGBColourYellow = (255,255,0)
+RGBColourWhite = (255,255,255)
+RGBColourMap = {
+    'Person'    : RGBColourGreen,
+    'Car'       : RGBColourYellow,
+    'Unknown'   : RGBColourWhite
+}
+
+# #####################################################################################################
+
 def addConfidenceScore(imgArraySource, confidenceText) :
     """ Add text in a bar added to the bottom of an image to show the confidence score and return 
         the new image. """
@@ -276,6 +288,47 @@ def addConfidenceScore(imgArraySource, confidenceText) :
 
 # #####################################################################################################
 
+def generateRowImageArray(rowImages, horizontalSpacing) :
+    r = newImageArray(300, len(rowImages) * horizontalSpacing)
+    r[:,:] = (0,0,255)
+
+    return r
+
+def layoutExtractedImages(instances, maxRowWidth, horizontalSpacing) :
+    """ Lays out the set of instances in rows, returning an image per row. """
+
+    rows = []
+
+    # Build up the set of images to display on a row.
+    rowImages = []
+    rowWidth = 0
+    for instance in instances :
+        # Add confidence score text below each cropped image
+        imgCroppedArray = addConfidenceScore(instance['crop'], instance['conf_s'])
+        imgWidth = imgCroppedArray.shape[1]
+        # Will this instance fit into the current row ? Always put at least one item in
+        if len(rowImages) == 0:
+            rowImages.append(imgCroppedArray)
+            rowWidth = imgWidth
+        elif rowWidth + horizontalSpacing + imgWidth <= maxRowWidth :
+            rowImages.append(imgCroppedArray)
+            rowWidth += horizontalSpacing + imgWidth
+        else :
+            # End of this row. Create an image for the items in the row.
+            rows.append(generateRowImageArray(rowImages, horizontalSpacing))
+            rowImages.clear()
+            rowWidth = 0
+
+    if len(rowImages) > 0 :
+        rows.append(generateRowImageArray(rowImages, horizontalSpacing))
+        rowImages.clear()
+        rowWidth = 0
+
+    return rows
+
+
+# #####################################################################################################
+
 def performLabelExtraction(imgFile) :
     """ Invoke Rekognition on the image, return the response info and a text summary """
 
@@ -285,18 +338,6 @@ def performLabelExtraction(imgFile) :
     summaryText = getSummaryText(imgFile, labelsResponse) 
     summaryText = summaryText.rstrip()  # Remove trailing whitespace, especially newlines
     return labelsResponse, summaryText
-
-# #####################################################################################################
-
-# Define a mapping between Rekognition label types and the colour of rectangle we draw around the item.
-RGBColourGreen = (0,255,0)
-RGBColourYellow = (255,255,0)
-RGBColourWhite = (255,255,255)
-RGBColourMap = {
-    'Person'    : RGBColourGreen,
-    'Car'       : RGBColourYellow,
-    'Unknown'   : RGBColourWhite
-}
 
 # #####################################################################################################
 
@@ -353,20 +394,26 @@ def produceOutputImage(imgFile, labelsResponse, summaryText, outputFileName) :
 
     if len(instancesInfo) > 0 :
 
-        # Add confidence score text below each cropped image
-        for info in instancesInfo :
-            info['crop+conf'] = addConfidenceScore(info['crop'], info['conf_s'])
+        verticalRowSpacingArray = newImageArray(verticalMargin // 2, imgTargetArray.shape[0])
 
         # Go through each distinct label type in turn
-        labelNames = set(info['labelname'] for info in instancesInfo)
+        labelNames = set(instance['labelname'] for instance in instancesInfo)
         for labelName in labelNames :
-            imgTargetArray = addImageAt(imgTargetArray, verticalSpacingArray, imgTargetArray.shape[0], 0)
+            # Add the label name text as a section heading
             imgLabelName = getTextAsImageArray('Label = "{0}"'.format(labelName))
+            imgTargetArray = addImageAt(imgTargetArray, verticalSpacingArray, imgTargetArray.shape[0], 0)
             imgTargetArray = addImageAt(imgTargetArray, imgLabelName, imgTargetArray.shape[0], horizontalMargin)
-            
-            # add label heading, then spacing
-            # add items in one or more rows + spacing between them
 
+            instances = [ instance for instance in instancesInfo if instance['labelname'] == labelName ]
+
+            rowImages = layoutExtractedImages(instances, 
+                                imgTargetArray.shape[1] - 2*horizontalMargin, 
+                                horizontalMargin)
+            for rowImage in rowImages :
+                imgTargetArray = addImageAt(imgTargetArray, verticalRowSpacingArray, imgTargetArray.shape[0], 0)
+                imgTargetArray = addImageAt(imgTargetArray, rowImage, imgTargetArray.shape[0], horizontalMargin)
+
+            # add items in one or more rows + spacing between them
 
 
     # .. rework the code below after 'return'
