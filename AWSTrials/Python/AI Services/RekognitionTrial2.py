@@ -200,7 +200,7 @@ def getTextAsImageArray(text, fontFile="cour.ttf", fontPointSize=25, ymargin=10,
     npa = np.array(pilImage)
 
     # Diagnostics to draw a back rectangle around the text, to aid in locating it in a finished image.
-    addRectangle = True
+    addRectangle = False
     if addRectangle :
         from cv2 import cv2
         cv2.rectangle(npa, (0, 0, textWidth+2*xmargin, textHeight+2*ymargin), color=black, thickness=2 )
@@ -289,24 +289,37 @@ def addConfidenceScore(imgArraySource, confidenceText) :
 # #####################################################################################################
 
 def generateRowImageArray(rowImages, horizontalSpacing) :
-    r = newImageArray(300, len(rowImages) * horizontalSpacing)
-    r[:,:] = (0,0,255)
+    """ Places the images into a single row image, with the specified spacing. """
 
-    return r
+    # Work out the height that the combined image needs to be
+    rowHeight = max([image.shape[0] for image in rowImages])
+
+    # Initial array dimensions don't really matter (as long as not too large), we will extend as we
+    # go along.
+    rowImage = newImageArray(rowHeight, horizontalSpacing)
+    horizontalOffset = 0
+    for image in rowImages :
+        rowImage = addImageAt(rowImage, image, 0, horizontalOffset)
+        #rowImage = addImageAt(rowImage, image, rowHeight - image.shape[0], horizontalOffset)
+        horizontalOffset += horizontalSpacing + image.shape[1]
+    
+    return rowImage
 
 def layoutExtractedImages(instances, maxRowWidth, horizontalSpacing) :
-    """ Lays out the set of instances in rows, returning an image per row. """
+    """ Lays out the set of instances in rows, returning a list of rows. """
 
+    # Return the set of rows found as a list.
     rows = []
 
-    # Build up the set of images to display on a row.
+    # Build up the set of images to display on each row in turn, until the row width
+    # has been used up, then start a new row.
     rowImages = []
     rowWidth = 0
     for instance in instances :
         # Add confidence score text below each cropped image
         imgCroppedArray = addConfidenceScore(instance['crop'], instance['conf_s'])
         imgWidth = imgCroppedArray.shape[1]
-        # Will this instance fit into the current row ? Always put at least one item in
+        # Will this instance fit into the current row ? Always put at least one item in.
         if len(rowImages) == 0:
             rowImages.append(imgCroppedArray)
             rowWidth = imgWidth
@@ -314,18 +327,18 @@ def layoutExtractedImages(instances, maxRowWidth, horizontalSpacing) :
             rowImages.append(imgCroppedArray)
             rowWidth += horizontalSpacing + imgWidth
         else :
-            # End of this row. Create an image for the items in the row.
+            # No more for this row. Create an overall image for the items in the row.
             rows.append(generateRowImageArray(rowImages, horizontalSpacing))
+            # Put the current item at the start of a new row.
             rowImages.clear()
-            rowWidth = 0
+            rowImages.append(imgCroppedArray)
+            rowWidth = imgWidth
 
+    # Deal with the final row.
     if len(rowImages) > 0 :
         rows.append(generateRowImageArray(rowImages, horizontalSpacing))
-        rowImages.clear()
-        rowWidth = 0
 
     return rows
-
 
 # #####################################################################################################
 
@@ -390,94 +403,33 @@ def produceOutputImage(imgFile, labelsResponse, summaryText, outputFileName) :
         imgWithRectangles = addRectanglesToImage(imgSourceArray.copy(), instancesInfo, RGBColourMap)
         imgTargetArray = addImageAt(imgTargetArray, imgWithRectangles, imgTargetArray.shape[0], horizontalMargin)
 
-    # And now add the individual extracted images (showing confidence values) in rows by label type ...
-
+    # And now add the individual extracted images (showing confidence values) grouped by label type,
+    # with multiple images per row.
     if len(instancesInfo) > 0 :
-
-        verticalRowSpacingArray = newImageArray(verticalMargin // 2, imgTargetArray.shape[0])
+        # Use reduced vertical spacing element between items here.
+        verticalRowSpacingArray = newImageArray(verticalMargin // 2, imgTargetArray.shape[1])
 
         # Go through each distinct label type in turn
-        labelNames = set(instance['labelname'] for instance in instancesInfo)
+        labelNames = sorted(set(instance['labelname'] for instance in instancesInfo), reverse=False)
         for labelName in labelNames :
             # Add the label name text as a section heading
             imgLabelName = getTextAsImageArray('Label = "{0}"'.format(labelName))
             imgTargetArray = addImageAt(imgTargetArray, verticalSpacingArray, imgTargetArray.shape[0], 0)
             imgTargetArray = addImageAt(imgTargetArray, imgLabelName, imgTargetArray.shape[0], horizontalMargin)
 
+            # Display images with this label name, spaced out into multiple rows if necessary.
             instances = [ instance for instance in instancesInfo if instance['labelname'] == labelName ]
-
-            rowImages = layoutExtractedImages(instances, 
-                                imgTargetArray.shape[1] - 2*horizontalMargin, 
-                                horizontalMargin)
-            for rowImage in rowImages :
+            availableWidth = imgTargetArray.shape[1] - 2*horizontalMargin
+            rowsOfImages = layoutExtractedImages(instances, availableWidth, horizontalMargin)
+            for imgOfRowOfImages in rowsOfImages :
                 imgTargetArray = addImageAt(imgTargetArray, verticalRowSpacingArray, imgTargetArray.shape[0], 0)
-                imgTargetArray = addImageAt(imgTargetArray, rowImage, imgTargetArray.shape[0], horizontalMargin)
+                imgTargetArray = addImageAt(imgTargetArray, imgOfRowOfImages, imgTargetArray.shape[0], horizontalMargin)
 
-            # add items in one or more rows + spacing between them
-
-
-    # .. rework the code below after 'return'
-
+    # Add a final spacing element at the bottom, and write the final image to a file.
     imgTargetArray = addImageAt(imgTargetArray, verticalSpacingArray, imgTargetArray.shape[0], 0)
     writeImageArrayToFile(outputFileName, imgTargetArray)
 
     return
-
-    if len(instancesInfo) > 0 :
-
-        # Add extracted images. Initially put each on a separate row, stop when out of room.
-        # Should add some text to show label and confidence.
-        horizontalRightLimit = horizontalSpacing + imgWithRectangles.shape[1]
-        horizontalStartPoint = horizontalSpacing
-        currentLabelName = ''
-        rowHeight = 0
-        spacingMultiple = 1
-
-        for info in instancesInfo :
-            crop = info['crop+conf']
-            addLabel = False
-            useNewRow = False
-
-            if currentLabelName == '' :
-                addLabel = True
-                currentLabelName = info['labelname']
-
-            if currentLabelName != info['labelname'] :
-                addLabel = True
-                currentLabelName = info['labelname']
-
-            if horizontalStartPoint + crop.shape[1] >= horizontalRightLimit :
-                useNewRow = True
-                spacingMultiple = 1
-
-            if addLabel or useNewRow:
-                if addLabel :
-                    print('Adding label', currentLabelName)
-                    labelNameImage = getTextAsImageArray('Label = "{0}"'.format(currentLabelName))
-                    verticalStartPoint += rowHeight + verticalSpacing * spacingMultiple
-                    a = addImageAt(a, labelNameImage, verticalStartPoint, horizontalSpacing)
-                    verticalStartPoint += labelNameImage.shape[0] + verticalSpacing * spacingMultiple
-                    horizontalStartPoint = horizontalSpacing
-                    rowHeight = 0
-                else :
-                    # Continuation of an existing label on another line
-                    horizontalStartPoint = horizontalSpacing
-                    verticalStartPoint += rowHeight + verticalSpacing * spacingMultiple
-                    rowHeight = 0
-                    currentLabelName = info['labelname']
-
-            a = addImageAt(a, crop, verticalStartPoint, horizontalStartPoint)
-            print('Added ', crop.shape, verticalStartPoint, horizontalStartPoint)
-            rowHeight = max(rowHeight, crop.shape[0])
-            horizontalStartPoint += crop.shape[1] + horizontalSpacing
-
-        horizontalStartPoint = horizontalSpacing
-        verticalStartPoint += rowHeight + verticalSpacing
-
-    footer = np.full((verticalSpacing, a.shape[1], 3), 255, dtype='uint8')
-    a = addImageAt(a, footer, verticalStartPoint, horizontalSpacing)
-
-    writeImageArrayToFile(outputFileName, a)
 
 # #####################################################################################################
 
