@@ -36,7 +36,7 @@ def detectLabelsFromLocalFile(imgFile) :
 
     # Use cache folder specified in environment, if present, otherwise a default.
     envVarName = 'REKOGNITION_RESPONSE_CACHE_LOCATION'
-    cacheDefault = os.path.join(os.path.dirname(__file__), 'responsesCache')
+    cacheDefault = os.path.join(os.path.dirname(__file__), 'responsesCache/rekognition')
     cacheLocation = os.environ.get(envVarName, cacheDefault)
 
     # We cache two files per image: a 'pickle' format data structure, and a human-readable form of the same data
