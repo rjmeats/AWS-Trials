@@ -29,11 +29,16 @@ du Parti conservateur.
 '''
 ]
 
-for text in french :
+import pprint
+
+for text in french[0:1] :
     result = translate.translate_text(Text=text, 
                 SourceLanguageCode="fr", TargetLanguageCode="en")
     print('TranslatedText: ' + result.get('TranslatedText'))
     print()
+    pp = pprint.PrettyPrinter(indent=4)
+    pstring = pp.pformat(result)
+    print(pstring)
 
 print()
 print('SourceLanguageCode: ' + result.get('SourceLanguageCode'))
