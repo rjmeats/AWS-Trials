@@ -16,6 +16,8 @@ import boto3            # Python interface to AWS
 import pickle           # To save Rekognition response in a simple local cache
 import pprint           # Dump Python data structure showing the Rekognition response in a readable format
 
+import Cacher
+
 # #####################################################################################################
 
 # Invoke Rekognition, via Boto3, to extract 'labels' from an image in a specified file. Responses are
@@ -27,50 +29,23 @@ import pprint           # Dump Python data structure showing the Rekognition res
 def detectLabelsFromLocalFile(imgFile) :
     """ Return Rekognition label data (in Boto3 form) extracted from the specified image file. """
 
-    # Check for a cached response file. The cached response will be in a cache folder, with the cached
-    # file name derived from the image file name = NB the current simple scheme doesn't work when different
-    # images have the same file name! Also, doesn't clear the cache ever, or put a time limit on entries,
-    # so not operationally robust.
-
+    # Check for a cached response file, using the image file name as the cache key. NB Will need
+    # something more sophisticated to allow different images in files of the same base name to be used.
     imgFileBasename = os.path.basename(imgFile)
-
-    # Use cache folder specified in environment, if present, otherwise a default.
-    envVarName = 'REKOGNITION_RESPONSE_CACHE_LOCATION'
-    cacheDefault = os.path.join(os.path.dirname(__file__), 'responsesCache/rekognition')
-    cacheLocation = os.environ.get(envVarName, cacheDefault)
-
-    # We cache two files per image: a 'pickle' format data structure, and a human-readable form of the same data
-    cacheFile = os.path.join(cacheLocation, imgFileBasename + '.response')
-    prettyCacheFile = os.path.join(cacheLocation, imgFileBasename + '.response.pretty.txt')
-
-    if os.path.isfile(cacheFile) :
-        print('Cache file {0} found ..'.format(cacheFile))
-
-        with open(cacheFile, 'rb') as f:
-            response = pickle.load(f)
-            print('.. read pre-existing response from cache file')
-    else :
-        print('No cache file {0} found, invoking Rekognition ..'.format(cacheFile))
-
+    cacher = Cacher.Cacher('Rekognition', imgFileBasename)
+    cachedResponse = cacher.findCachedResponse()
+    if cachedResponse == None :
         # Use boto3 to make the Rekognition 'detect labels' call, passing in the image as 
         # bytes (which Boto3 presumably converts to base-64 encoding).
+        print('Invoking Rekognition ...')
         client = boto3.client('rekognition')
         with open(imgFile, 'rb') as image :
+            # Boto3 converts the raw Rekognition HTTP response to a Python data structure. 
             response = client.detect_labels(Image={'Bytes' : image.read() })
-            print('.. read response from Rekognition')
-
-        # Boto3 converts the raw Rekognition HTTP response to a Python data structure. Use pickle to
-        # cache this data.
-        with open(cacheFile, 'wb') as f:
-            pickle.dump(response, f)
-            print('Written Rekognition response as binary object to cache file {0}'.format(cacheFile))
-
-    # Produce a human-readable version of the Rekognition+Boto3 response data structure, and cache this too.
-    pp = pprint.PrettyPrinter(indent=4)
-    pstring = pp.pformat(response)
-    with open(prettyCacheFile, 'w') as f:
-        f.write(pstring)
-        print('Dumped formatted response to file {0}'.format(prettyCacheFile))
+            print('... response received from Rekognition')
+            cacher.storeResponseInCache(response)
+    else :
+        response = cachedResponse
 
     return response
 
