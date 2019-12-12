@@ -1,0 +1,3 @@
+This is input language text for translation.
+
+Il s'agit d'un texte de langue d'entrée pour la traduction.

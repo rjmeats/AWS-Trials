@@ -39,6 +39,10 @@ class Cacher :
 
     def storeResponseInCache(self, response) :
 
+        if not os.path.isdir(self.cacheLocation) :
+            os.makedirs(self.cacheLocation)
+            print('Created {0} cache location {1}'.format(self.itemTypeName, self.cacheLocation))
+
         # Use pickle to cache the response data.
         with open(self.cacheFile, 'wb') as f:
             pickle.dump(response, f)
@@ -47,7 +51,7 @@ class Cacher :
         # Produce a human-readable version of the response data structure, and cache this too.
         pp = pprint.PrettyPrinter(indent=4)
         pstring = pp.pformat(response)
-        with open(self.prettyCacheFile, 'w') as f:
+        with open(self.prettyCacheFile, 'w', encoding='utf-8') as f:
             f.write(pstring)
             print('Dumped formatted {0} response to file {1}'.format(self.itemTypeName, self.prettyCacheFile))
 
