@@ -32,41 +32,31 @@ du Parti conservateur.
 '''
 ]
 
-def translate(textFile, fromLangauge='en', toLanguage='fr') :
+def translate(textFile, fromLanguage='en', toLanguage='fr') :
     # Check for a cached response file, using the image file name as the cache key. NB Will need
     # something more sophisticated to allow different images in files of the same base name to be used.
     textFileBasename = os.path.basename(textFile)
     with open(textFile, 'r', encoding='utf-8') as f :
         text = f.read()
 
-    
-    cacher = Cacher.Cacher('Translate', textFileBasename)
+    # Create a hash of the text to distinguish files with the same name but containing different text.
+    # Only use a few digits of it to keep filename short.
+    import hashlib
+    textHashDigest = hashlib.sha256(text.encode()).hexdigest()
+    cacheID = "{0}.{1}.{2}.{3}".format(textFileBasename, fromLanguage, toLanguage, textHashDigest[0:4])
+    cacher = Cacher.Cacher('Translate', cacheID)
     cachedResponse = cacher.findCachedResponse()
     if cachedResponse == None :
         print('Invoking Translate ...')
         client = boto3.client('translate')
         # Boto3 converts the raw Rekognition HTTP response to a Python data structure. 
-        response = client.translate_text(Text=text, SourceLanguageCode=fromLangauge, TargetLanguageCode=toLanguage)
+        response = client.translate_text(Text=text, SourceLanguageCode=fromLanguage, TargetLanguageCode=toLanguage)
         print('... response received from Translate')
         cacher.storeResponseInCache(response)
     else :
         response = cachedResponse
 
     return text, response
-
-
-# for text in french[0:1] :
-#     result = translate.translate_text(Text=text, 
-#                 SourceLanguageCode="fr", TargetLanguageCode="en")
-#     print('TranslatedText: ' + result.get('TranslatedText'))
-#     print()
-#     pp = pprint.PrettyPrinter(indent=4)
-#     pstring = pp.pformat(result)
-#     print(pstring)
-
-# print()
-# print('SourceLanguageCode: ' + result.get('SourceLanguageCode'))
-# print('TargetLanguageCode: ' + result.get('TargetLanguageCode'))
 
 # #####################################################################################################
 
@@ -78,12 +68,19 @@ def main(argv) :
         textFile = 'AI Services/language.txt'
         print('No text file argument provided, using default : ', textFile)
 
+    if len(argv) > 3 :
+        sourceLang = argv[2]
+        targetLang = argv[3]
+    else :
+        sourceLang = 'en'
+        targetLang = 'fr'
+
     if not os.path.isfile(textFile) :
         print()
         print('*** File {0} not found'.format(textFile))
         return
 
-    text, response = translate(textFile)
+    text, response = translate(textFile, fromLanguage=sourceLang, toLanguage=targetLang)
 
     bar = "=================================================================================="
     print('Converted:')
